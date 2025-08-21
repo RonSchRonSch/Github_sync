@@ -1,0 +1,18 @@
+body { font-family: system-ui, Arial, sans-serif; margin: 0; }
+nav { background: #111; color: #fff; padding: 10px; }
+nav a { color: #fff; margin-right: 14px; text-decoration: none; }
+main { padding: 16px; }
+label { display:block; margin: 8px 0; }
+input, textarea { width: 100%; padding: 6px; box-sizing: border-box; }
+.row { display: flex; gap: 16px; }
+.row label { flex: 1; }
+.flash { padding: 8px 16px; }
+.msg { padding: 6px 8px; margin: 4px 0; border-radius: 4px; }
+.msg.success{ background:#e6ffed; }
+.msg.warning{ background:#fff9e6; }
+.msg.info{ background:#e6f0ff; }
+.msg.danger{ background:#ffe6e6; }
+.ok { color: #0a0; font-weight: bold; }
+.off { color: #a00; font-weight: bold; }
+pre#logbox { background:#0b0b0b; color:#d7d7d7; padding:10px; height:300px; overflow:auto; border-radius:6px; }
+button { padding: 8px 12px; }

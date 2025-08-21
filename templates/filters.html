@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Filter</h1>
+<form method="post">
+  <label>Erlaubte Dateiendungen (Kommagetrennt)
+    <textarea name="include_exts" rows="2">{{ cfg.include_exts|join(", ") }}</textarea>
+  </label>
+  <label>Ausgeschlossene Ordner (Kommagetrennt)
+    <textarea name="exclude_dirs" rows="2">{{ cfg.exclude_dirs|join(", ") }}</textarea>
+  </label>
+  <button>Speichern</button>
+</form>
+<p>Tipp: Die App filtert unabhängig von .gitignore. Du kannst beides kombinieren.</p>
+{% endblock %}

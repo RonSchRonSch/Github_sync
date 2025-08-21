@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>GitHub Auto Sync – Dashboard</h1>
+<p><b>Projekt:</b> {{ cfg.project_name }} — <code>{{ cfg.project_path }}</code></p>
+<p><b>Branch:</b> {{ cfg.branch }} — <b>Remote:</b> {{ cfg.remote_url or "—" }}</p>
+<p><b>Status:</b> {% if running %}<span class="ok">WATCHING</span>{% else %}<span class="off">STOPPED</span>{% endif %}</p>
+
+<form method="post" action="{{ url_for('start_watch') }}" style="display:inline;">
+  <button {% if running %}disabled{% endif %}>Start</button>
+</form>
+<form method="post" action="{{ url_for('stop_watch') }}" style="display:inline;">
+  <button {% if not running %}disabled{% endif %}>Stop</button>
+</form>
+
+<h2>Letzte Ereignisse</h2>
+<pre id="logbox">{% for line in logs %}{{ line }}
+{% endfor %}</pre>
+
+<script>
+  setInterval(async () => {
+    const res = await fetch("{{ url_for('api_logs') }}");
+    const data = await res.json();
+    const box = document.getElementById("logbox");
+    box.textContent = data.logs.join("\\n") + "\\n";
+  }, 2000);
+</script>
+{% endblock %}
