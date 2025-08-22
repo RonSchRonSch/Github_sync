@@ -1,5 +1,6 @@
 from __future__ import annotations
 import hashlib, shutil, threading, time
+import os
 from collections import deque
 from datetime import datetime
 from pathlib import Path
@@ -23,6 +24,20 @@ class InMemoryLog:
     def dump(self) -> List[str]:
         with self._lock:
             return list(self._buf)
+
+def _is_under_git(path: Path) -> bool:
+  """True, wenn der Pfad irgendwo unter einem .git/ liegt."""
+  parts = Path(path).resolve().parts
+  return ".git" in parts
+
+def _display_path(project_root: Path, p: Path) -> str:
+  """Aus /Users/.../Test_Vector/src/x.py -> Test_Vector/src/x.py."""
+  try:
+    rel = p.relative_to(project_root)
+  except Exception:
+    rel = p
+  proj = project_root.name  # letzter Ordnername
+  return f"{proj}/{rel.as_posix()}"
 
 def digest(path: Path) -> str:
     try:
@@ -125,9 +140,11 @@ class WatchHandler(FileSystemEventHandler):
         try:
             stage_paths(self.repo, self.root, changed, deleted)
             if self.cfg.get("auto_commit", True) or self.cfg.get("auto_push", True):
-                msg = f"auto: {len(changed)} updated, {len(deleted)} removed @ {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-                commit_and_push(self.repo, self.cfg.get("branch","main"), msg, self.cfg.get("auto_commit", True), self.cfg.get("auto_push", True))
-                self.log.add(f"Commit/Push: {msg}")
+              proj = self.root.name
+              msg = f"{proj}: {len(changed)} updated, {len(deleted)} removed @ {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+              commit_and_push(self.repo, self.cfg.get("branch", "main"), f"auto: {msg}",
+                              self.cfg.get("auto_commit", True), self.cfg.get("auto_push", True))
+              self.log.add(f"Commit/Push: {msg}")
         except Exception as e:
             self.log.add(f"Fehler Batch: {e!r}")
 
@@ -136,6 +153,8 @@ class WatchHandler(FileSystemEventHandler):
         if event.is_directory:
             return
         p = Path(event.src_path)
+        if _is_under_git(p):
+          return
         if not is_watched_file(self.root, p, self.cfg["include_exts"], self.cfg["exclude_dirs"]):
             return
         if self._debounced(p) or (p.exists() and not self._digest_changed(p)):
@@ -143,17 +162,19 @@ class WatchHandler(FileSystemEventHandler):
         if p.exists():
             self._backup_rotate(p)
             self._changed.add(p)
-            self.log.add(f"Änderung: {p.relative_to(self.root)}")
+            self.log.add(f"Änderung: {_display_path(self.root, p)}")
             self._schedule_batch()
 
     def on_created(self, event):
         if event.is_directory:
             return
         p = Path(event.src_path)
+        if _is_under_git(p):
+          return
         if not is_watched_file(self.root, p, self.cfg["include_exts"], self.cfg["exclude_dirs"]):
             return
         self._changed.add(p)
-        self.log.add(f"Neu: {p.relative_to(self.root)}")
+        self.log.add(f"Neu: {_display_path(self.root, p)}")
         self._schedule_batch()
 
     def on_deleted(self, event):
@@ -164,21 +185,31 @@ class WatchHandler(FileSystemEventHandler):
             _ = p.relative_to(self.root)
         except Exception:
             return
+        if _is_under_git(p):
+          return
         self._deleted.add(p)
-        self.log.add(f"Gelöscht: {p}")
+        self.log.add(f"Gelöscht: {_display_path(self.root, p)}")
         self._schedule_batch()
 
     def on_moved(self, event):
-        src = Path(event.src_path); dest = Path(event.dest_path)
-        try:
-            _ = src.relative_to(self.root)
-        except Exception:
-            return
-        self._deleted.add(src)
-        if dest.exists() and is_watched_file(self.root, dest, self.cfg["include_exts"], self.cfg["exclude_dirs"]):
-            self._changed.add(dest)
-        self.log.add(f"Verschoben: {src} -> {dest}")
-        self._schedule_batch()
+      src = Path(event.src_path);
+      dest = Path(event.dest_path)
+
+      # .git beidseitig ignorieren
+      if _is_under_git(src) or _is_under_git(dest):
+        return
+
+      try:
+        _ = src.relative_to(self.root)
+      except Exception:
+        return
+
+      self._deleted.add(src)
+      if dest.exists() and is_watched_file(self.root, dest, self.cfg["include_exts"], self.cfg["exclude_dirs"]):
+        self._changed.add(dest)
+
+      self.log.add(f"Verschoben: {_display_path(self.root, src)} -> {_display_path(self.root, dest)}")
+      self._schedule_batch()
 
 class WatchService:
     def __init__(self, cfg: dict, log: InMemoryLog):
