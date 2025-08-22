@@ -58,6 +58,8 @@ def is_watched_file(root: Path, p: Path, include_exts: List[str], exclude_dirs: 
         return False
     if p.suffix.lower() not in {e.lower() for e in include_exts}:
         return False
+    if ".git" in rel.parts:  # Safety net
+      return False
     if BACKUP_DIRNAME in rel.parts:
         return False
     for part in rel.parts:

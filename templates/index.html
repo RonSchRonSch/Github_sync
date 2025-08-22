@@ -13,22 +13,26 @@
 </form>
 
 <h2>Letzte Ereignisse</h2>
-<pre id="logbox">{% for line in logs %}{{ line }}
-{% endfor %}</pre>
+<pre id="log" class="log"></pre>
 
-<<script>
+<script>
   async function refreshLogs() {
     try {
       const res = await fetch("/api/logs", { cache: "no-store" });
       const data = await res.json();
-      // Falls der Server einen Text mit \n liefert -> in echte Zeilenumbrüche wandeln
+      // \n aus dem Text in echte Zeilenumbrüche verwandeln
       const text = (data.text || "").replace(/\\n/g, "\n");
       const el = document.getElementById("log");
-      el.textContent = text;                // NICHT innerHTML
-    } catch (e) {}
+      el.textContent = text; // kein innerHTML!
+      // optional automatisch ans Ende scrollen:
+      el.scrollTop = el.scrollHeight;
+    } catch (e) {
+      // still
+    }
   }
-  setInterval(refreshLogs, 1500);
   refreshLogs();
+  setInterval(refreshLogs, 1500);
 </script>
+
 
 {% endblock %}
