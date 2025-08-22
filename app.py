@@ -84,29 +84,38 @@ def api_logs():
 
 @app.get("/pick-folder")
 def pick_folder():
-    # Lokaler Systemdialog – nur möglich, weil Flask lokal läuft
+    from flask import jsonify
     try:
-        import tkinter as tk
-        from tkinter import filedialog
-        import os
+        # tkinter Import separat try-enclosed, damit fehlende Tk lib sauber gemeldet wird
+        try:
+            import tkinter as tk
+            from tkinter import filedialog
+        except Exception as ie:
+            return jsonify(ok=False, error=f"tkinter nicht verfügbar: {ie}"), 200
 
-        # verhindert das "Python will Zugriff auf …" Dock-Icon / zeigt nur Dialog
+        import os
+        from pathlib import Path
+
         os.environ.setdefault("TK_SILENCE_DEPRECATION", "1")
         root = tk.Tk()
         root.withdraw()
         root.update()
         path = filedialog.askdirectory(title="Projektordner wählen")
-        root.destroy()
+        try:
+            root.destroy()
+        except Exception:
+            pass
 
         if not path:
-            return jsonify(ok=False, path="")
+            return jsonify(ok=False, path="", error="Abgebrochen"), 200
 
-        # Normalisieren (z. B. ~ auflösen)
-        from pathlib import Path
         path = str(Path(path).expanduser().resolve())
-        return jsonify(ok=True, path=path)
+        return jsonify(ok=True, path=path), 200
+
     except Exception as e:
-        return jsonify(ok=False, error=str(e))
+        # niemals HTML, immer JSON -> JS kann es anzeigen
+        return jsonify(ok=False, error=f"{type(e).__name__}: {e}"), 200
+
 
 
 if __name__ == "__main__":
