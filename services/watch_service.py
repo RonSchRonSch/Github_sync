@@ -157,61 +157,50 @@ class WatchHandler(FileSystemEventHandler):
 
     # Events
     def on_modified(self, event):
-        if event.is_directory:
-            return
-        p = Path(event.src_path)
-        if _is_under_git(p):
-          return
-        if not is_watched_file(self.root, p, self.cfg["include_exts"], self.cfg["exclude_dirs"]):
-            return
-        if self._debounced(p) or (p.exists() and not self._digest_changed(p)):
-            return
-        if p.exists():
-            self._backup_rotate(p)
-            self._changed.add(p)
-            self._schedule_batch()
+      if event.is_directory:
+        return
+      p = Path(event.src_path)
+      if not self._is_watched_file(p):
+        return
+      self._changed.add(p)
+      if not p.name.endswith("~"):
+        self.log.add(f"Änderung: {_display_path(self.root, p)}")
+      self._schedule_batch()
 
     def on_created(self, event):
-        if event.is_directory:
-            return
-        p = Path(event.src_path)
-        if _is_under_git(p):
-          return
-        if not is_watched_file(self.root, p, self.cfg["include_exts"], self.cfg["exclude_dirs"]):
-            return
-        self._changed.add(p)
-        self._schedule_batch()
+      if event.is_directory:
+        return
+      p = Path(event.src_path)
+      if not self._is_watched_file(p):
+        return
+      self._changed.add(p)
+      if not p.name.endswith("~"):
+        self.log.add(f"Neu: {_display_path(self.root, p)}")
+      self._schedule_batch()
 
     def on_deleted(self, event):
-        if event.is_directory:
-            return
-        p = Path(event.src_path)
-        try:
-            _ = p.relative_to(self.root)
-        except Exception:
-            return
-        if _is_under_git(p):
-          return
-        self._deleted.add(p)
-        self._schedule_batch()
+      if event.is_directory:
+        return
+      p = Path(event.src_path)
+      # Auch gelöschte ignorieren, wenn es Tilde-Dateien waren
+      if not self._is_watched_path(p) or p.name.endswith("~"):
+        return
+      self._deleted.add(p)
+      self.log.add(f"Gelöscht: {_display_path(self.root, p)}")
+      self._schedule_batch()
 
     def on_moved(self, event):
-      src = Path(event.src_path);
+      if event.is_directory:
+        return
+      src = Path(event.src_path)
       dest = Path(event.dest_path)
-
-      # .git beidseitig ignorieren
-      if _is_under_git(src) or _is_under_git(dest):
-        return
-
-      try:
-        _ = src.relative_to(self.root)
-      except Exception:
-        return
-
-      self._deleted.add(src)
-      if dest.exists() and is_watched_file(self.root, dest, self.cfg["include_exts"], self.cfg["exclude_dirs"]):
+      # Quelle als gelöscht behandeln (nur loggen, wenn keine Tilde)
+      if self._is_watched_path(src) and not src.name.endswith("~"):
+        self._deleted.add(src)
+        self.log.add(f"Verschoben: {_display_path(self.root, src)} -> {_display_path(self.root, dest)}")
+      # Ziel als geändert/neu, wenn es beobachtet wird und keine Tilde
+      if dest.exists() and self._is_watched_file(dest) and not dest.name.endswith("~"):
         self._changed.add(dest)
-
       self._schedule_batch()
 
 class WatchService:
