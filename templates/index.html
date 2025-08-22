@@ -1,15 +1,17 @@
 {% extends "base.html" %}
 {% block content %}
-<h1>GitHub Auto Sync – Dashboard</h1>
-<p><b>Projekt:</b> {{ cfg.project_name }} — <code>{{ cfg.project_path }}</code></p>
-<p><b>Branch:</b> {{ cfg.branch }} — <b>Remote:</b> {{ cfg.remote_url or "—" }}</p>
-<p><b>Status:</b> {% if running %}<span class="ok">WATCHING</span>{% else %}<span class="off">STOPPED</span>{% endif %}</p>
 
-<form method="post" action="{{ url_for('start_watch') }}" style="display:inline;">
-  <button {% if running %}disabled{% endif %}>Start</button>
+<h1>GitHub Auto Sync – Dashboard</h1>
+
+<p><strong>Projekt:</strong> {{ cfg.project_name }} — <code>{{ cfg.project_path }}</code></p>
+<p><strong>Branch:</strong> {{ cfg.branch }} — <strong>Remote:</strong> {{ cfg.remote_url or "—" }}</p>
+<p><strong>Status:</strong> {% if running %}<span class="ok">WATCHING</span>{% else %}<span class="off">STOPPED</span>{% endif %}</p>
+
+<form method="post" action="{{ url_for('start_watch') }}" style="display:inline">
+  <button type="submit" {% if running %}disabled{% endif %}>Start</button>
 </form>
-<form method="post" action="{{ url_for('stop_watch') }}" style="display:inline;">
-  <button {% if not running %}disabled{% endif %}>Stop</button>
+<form method="post" action="{{ url_for('stop_watch') }}" style="display:inline">
+  <button type="submit" {% if not running %}disabled{% endif %}>Stop</button>
 </form>
 
 <h2>Letzte Ereignisse</h2>
@@ -18,21 +20,23 @@
 <script>
   async function refreshLogs() {
     try {
-      const res = await fetch("/api/logs", { cache: "no-store" });
+      const res  = await fetch("/api/logs", { cache: "no-store" });
       const data = await res.json();
-      // \n aus dem Text in echte Zeilenumbrüche verwandeln
-      const text = (data.text || "").replace(/\\n/g, "\n");
+
+      let text = "";
+      if (typeof data?.text === "string") {
+        text = data.text;
+      } else if (Array.isArray(data?.lines)) {
+        text = data.lines.join("\n");
+      }
+
+      text = text.replace(/\\n/g, "\n");
       const el = document.getElementById("log");
-      el.textContent = text; // kein innerHTML!
-      // optional automatisch ans Ende scrollen:
+      el.textContent = text;
       el.scrollTop = el.scrollHeight;
-    } catch (e) {
-      // still
-    }
+    } catch (e) { /* still */ }
   }
   refreshLogs();
   setInterval(refreshLogs, 1500);
 </script>
-
-
 {% endblock %}

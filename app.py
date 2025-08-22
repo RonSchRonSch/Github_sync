@@ -80,7 +80,14 @@ def preview():
 
 @app.route("/api/logs")
 def api_logs():
-    return jsonify(logs=log.dump()[:200])
+    try:
+        lines = list(log.dump()[:500])
+    except Exception:
+        lines = []
+    return jsonify(
+        text="\n".join(lines),
+        lines=lines
+    )
 
 @app.get("/choose-folder")
 def choose_folder():

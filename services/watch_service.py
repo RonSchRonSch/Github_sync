@@ -134,6 +134,11 @@ class WatchHandler(FileSystemEventHandler):
             self._timer.start()
 
     def _do_batch(self):
+        # --- Rauschen durch Editor-Replace glätten ---
+        both = self._changed & self._deleted
+        if both:
+          self._deleted -= both
+        # --------------------------------------------
         with self._lock:
             changed = set(self._changed)
             deleted = set(self._deleted)
