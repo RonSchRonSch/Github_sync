@@ -4,34 +4,37 @@
 <form method="post">
   <label>Projektname <input name="project_name" value="{{ cfg.project_name }}"></label>
   <label>Projektpfad (absolut)
-  <input name="project_path" id="projectPath" value="{{ cfg.project_path }}" placeholder="/Users/deinName/Projects/DeinProjekt">
-</label>
+    <input name="project_path" id="projectPath" value="{{ cfg.project_path }}" placeholder="/Users/deinName/Projects/DeinProjekt">
+  </label>
 
-<div style="margin:6px 0 12px;">
-  <button type="button" id="btnPick">Ordner wählen…</button>
-  <span id="pickedInfo" style="margin-left:8px; color:#555;">
-    {% if cfg.project_path %}Aktuell: <code>{{ cfg.project_path }}</code>{% else %}Noch kein Ordner gewählt{% endif %}
-  </span>
-</div>
+  <div style="margin:6px 0 12px;">
+    <button type="button" id="btnPick">Ordner wählen…</button>
+    <span id="pickedInfo" style="margin-left:8px; color:#555;">
+      {% if cfg.project_path %}Aktuell: <code>{{ cfg.project_path }}</code>{% else %}Noch kein Ordner gewählt{% endif %}
+    </span>
+  </div>
 
-<script>
-  document.getElementById("btnPick").addEventListener("click", async () => {
-    try {
-      const res = await fetch("/pick-folder");
-      const data = await res.json();
-      if (data.ok && data.path) {
-        const ipt = document.getElementById("projectPath");
-        ipt.value = data.path;                      // Pfad ins Formular schreiben
-        const info = document.getElementById("pickedInfo");
-        info.innerHTML = 'Gewählt: <code>' + data.path + '</code>';
-      } else {
-        alert("Kein Ordner gewählt" + (data.error ? " – " + data.error : ""));
+  <script>
+    document.getElementById("btnPick").addEventListener("click", async () => {
+      try {
+        const res = await fetch("/pick-folder", { cache: "no-store" });
+        if (!res.ok) {
+          const text = await res.text();
+          alert(`HTTP ${res.status}: ${text.substring(0, 200)}…`);
+          return;
+        }
+        const data = await res.json();
+        if (data.ok && data.path) {
+          document.getElementById("projectPath").value = data.path;
+          document.getElementById("pickedInfo").innerHTML = 'Gewählt: <code>' + data.path + '</code>';
+        } else {
+          alert("Kein Ordner gewählt" + (data.error ? " – " + data.error : ""));
+        }
+      } catch (e) {
+        alert("Fehler beim Öffnen des Ordner-Dialogs: " + e);
       }
-    } catch (e) {
-      alert("Fehler beim Öffnen des Ordner-Dialogs: " + e);
-    }
-  });
-</script>
+    });
+  </script>
 
   <label>Branch <input name="branch" value="{{ cfg.branch }}"></label>
   <label>Remote URL <input name="remote_url" value="{{ cfg.remote_url }}" placeholder="https://github.com/user/repo.git"></label>
