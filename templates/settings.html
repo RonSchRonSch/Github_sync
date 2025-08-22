@@ -4,7 +4,8 @@
 <form method="post">
   <label>Projektname <input name="project_name" value="{{ cfg.project_name }}"></label>
   <label>Projektpfad (absolut)
-    <input name="project_path" id="projectPath" value="{{ cfg.project_path }}" placeholder="/Users/deinName/Projects/DeinProjekt">
+    <input name="project_path" id="projectPath" value="{{ cfg.project_path }}"
+         placeholder="/Users/deinName/Projects/DeinProjekt oder C:\Users\deinName\Projects\DeinProjekt">
   </label>
 
   <div style="margin:6px 0 12px;">
@@ -15,20 +16,20 @@
   </div>
 
   <script>
-    document.getElementById("btnPick").addEventListener("click", async () => {
+    const btn  = document.getElementById("btnPick");
+    const ipt  = document.getElementById("projectPath");
+    const info = document.getElementById("pickedInfo");
+
+    btn.addEventListener("click", async () => {
       try {
-        const res = await fetch("/pick-folder", { cache: "no-store" });
-        if (!res.ok) {
-          const text = await res.text();
-          alert(`HTTP ${res.status}: ${text.substring(0, 200)}…`);
-          return;
-        }
-        const data = await res.json();
-        if (data.ok && data.path) {
-          document.getElementById("projectPath").value = data.path;
-          document.getElementById("pickedInfo").innerHTML = 'Gewählt: <code>' + data.path + '</code>';
+        const res  = await fetch("/choose-folder", { cache: "no-store" });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.path) {
+          ipt.value = data.path;
+          info.innerHTML = 'Gewählt: <code>' + data.path + '</code>';
         } else {
-          alert("Kein Ordner gewählt" + (data.error ? " – " + data.error : ""));
+          const reason = data && (data.error || data.detail) ? (" – " + (data.error || data.detail)) : "";
+          alert("Kein Ordner gewählt" + reason);
         }
       } catch (e) {
         alert("Fehler beim Öffnen des Ordner-Dialogs: " + e);

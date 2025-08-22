@@ -1,5 +1,5 @@
 from __future__ import annotations
-import os
+import os, sys, subprocess
 from pathlib import Path
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 from models.config import ConfigStore
@@ -82,40 +82,57 @@ def preview():
 def api_logs():
     return jsonify(logs=log.dump()[:200])
 
-@app.get("/pick-folder")
-def pick_folder():
-    from flask import jsonify
+@app.get("/choose-folder")
+def choose_folder():
+    """
+    Öffnet den nativen Ordnerdialog abhängig vom OS:
+      - macOS: AppleScript (osascript)
+      - Windows/Linux: Tkinter askdirectory
+    Gibt JSON {ok: bool, path?: str, error?: str} zurück.
+    """
     try:
-        # tkinter Import separat try-enclosed, damit fehlende Tk lib sauber gemeldet wird
-        try:
-            import tkinter as tk
-            from tkinter import filedialog
-        except Exception as ie:
-            return jsonify(ok=False, error=f"tkinter nicht verfügbar: {ie}"), 200
+        # macOS: nativer Dialog
+        if sys.platform.startswith("darwin"):
+            script = (
+                'try\n'
+                '  set theFolder to POSIX path of (choose folder with prompt "Projektordner wählen")\n'
+                '  return theFolder\n'
+                'on error number -128\n'
+                '  return "__USER_CANCELLED__"\n'
+                'end try'
+            )
+            out = subprocess.check_output(["osascript", "-e", script], text=True).strip()
+            if out == "__USER_CANCELLED__" or not out:
+                return jsonify(ok=False, error="cancelled"), 400
+            path = out.rstrip("/")
+        else:
+            # Windows/Linux (+ macOS Fallback): Tkinter
+            try:
+                import tkinter as tk
+                from tkinter import filedialog
+                root = tk.Tk()
+                root.withdraw()
+                root.update()
+                path = filedialog.askdirectory(title="Projektordner wählen")
+                try:
+                    root.destroy()
+                except Exception:
+                    pass
+                if not path:
+                    return jsonify(ok=False, error="cancelled"), 400
+            except Exception as e:
+                return jsonify(ok=False, error=f"tkinter_failed: {e}"), 500
 
-        import os
-        from pathlib import Path
+        # Sicherheit: existiert der Ordner wirklich?
+        if not os.path.isdir(path):
+            return jsonify(ok=False, error="not_a_directory", path=path), 400
 
-        os.environ.setdefault("TK_SILENCE_DEPRECATION", "1")
-        root = tk.Tk()
-        root.withdraw()
-        root.update()
-        path = filedialog.askdirectory(title="Projektordner wählen")
-        try:
-            root.destroy()
-        except Exception:
-            pass
+        return jsonify(ok=True, path=str(Path(path).expanduser().resolve())), 200
 
-        if not path:
-            return jsonify(ok=False, path="", error="Abgebrochen"), 200
-
-        path = str(Path(path).expanduser().resolve())
-        return jsonify(ok=True, path=path), 200
-
+    except subprocess.CalledProcessError:
+        return jsonify(ok=False, error="osascript_failed"), 500
     except Exception as e:
-        # niemals HTML, immer JSON -> JS kann es anzeigen
-        return jsonify(ok=False, error=f"{type(e).__name__}: {e}"), 200
-
+        return jsonify(ok=False, error=f"unexpected: {e}"), 500
 
 
 if __name__ == "__main__":
