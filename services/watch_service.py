@@ -169,7 +169,6 @@ class WatchHandler(FileSystemEventHandler):
         if p.exists():
             self._backup_rotate(p)
             self._changed.add(p)
-            self.log.add(f"Änderung: {_display_path(self.root, p)}")
             self._schedule_batch()
 
     def on_created(self, event):
@@ -181,7 +180,6 @@ class WatchHandler(FileSystemEventHandler):
         if not is_watched_file(self.root, p, self.cfg["include_exts"], self.cfg["exclude_dirs"]):
             return
         self._changed.add(p)
-        self.log.add(f"Neu: {_display_path(self.root, p)}")
         self._schedule_batch()
 
     def on_deleted(self, event):
@@ -195,7 +193,6 @@ class WatchHandler(FileSystemEventHandler):
         if _is_under_git(p):
           return
         self._deleted.add(p)
-        self.log.add(f"Gelöscht: {_display_path(self.root, p)}")
         self._schedule_batch()
 
     def on_moved(self, event):
@@ -215,7 +212,6 @@ class WatchHandler(FileSystemEventHandler):
       if dest.exists() and is_watched_file(self.root, dest, self.cfg["include_exts"], self.cfg["exclude_dirs"]):
         self._changed.add(dest)
 
-      self.log.add(f"Verschoben: {_display_path(self.root, src)} -> {_display_path(self.root, dest)}")
       self._schedule_batch()
 
 class WatchService:

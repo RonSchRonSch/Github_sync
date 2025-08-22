@@ -17,17 +17,20 @@ input, textarea { width: 100%; padding: 6px; box-sizing: border-box; }
 pre#logbox { background:#0b0b0b; color:#d7d7d7; padding:10px; height:300px; overflow:auto; border-radius:6px; }
 button { padding: 8px 12px; }
 
+/* --- Layout-Schutz gegen horizontales Scrollen --- */
 html, body {
   max-width: 100%;
-  overflow-x: hidden;   /* verhindert horizontales Scrollen der ganzen Seite */
+  overflow-x: hidden;
 }
 
+/* Falls du einen äußeren Wrapper hast: */
 .container {
   box-sizing: border-box;
   width: 100%;
-  padding-right: 12px;  /* kleiner Innenabstand rechts, damit nichts „übersteht“ */
+  padding-right: 12px;  /* verhindert optischen Überstand rechts */
 }
 
+/* Log-Fläche */
 .log {
   white-space: pre-wrap;
   background: #0e0e0e;
@@ -35,15 +38,16 @@ html, body {
   padding: 10px;
   border-radius: 6px;
   height: 360px;
-  overflow: auto;       /* nur der Log-Bereich scrollt */
+  overflow: auto;       /* nur das Log scrollt */
   width: 100%;
-  box-sizing: border-box; /* Padding zählt zur Breite → kein Überstand */
+  box-sizing: border-box; /* padding zählt zur Breite → kein Rausragen */
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
   font-size: 13px;
   line-height: 1.35;
 }
 
+/* bricht sehr lange Pfade hart um */
 pre#log, pre#log * {
   max-width: 100%;
-  overflow-wrap: anywhere; /* bricht sehr lange Pfade hart um */
+  overflow-wrap: anywhere;
 }

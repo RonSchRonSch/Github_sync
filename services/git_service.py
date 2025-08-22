@@ -48,11 +48,20 @@ def stage_paths(repo: Repo, root: Path, add_paths: Iterable[Path], del_paths: It
         except Exception:
             pass
 
+
 def commit_and_push(repo: Repo, branch: str, message: str, do_commit: bool, do_push: bool) -> None:
-    if do_commit and has_changes(repo):
-        repo.index.commit(message)
-    if do_push:
-        try:
-            repo.remotes.origin.push(branch or repo.active_branch.name)
-        except Exception:
-            pass
+  """
+  Commit (optional) und Push (optional) mit sichtbarem Feedback.
+  """
+  if do_commit and has_changes(repo):
+    repo.index.commit(message)
+
+  if do_push:
+    try:
+      # branch bevorzugen; sonst aktiven Branch verwenden
+      ref = branch or repo.active_branch.name
+      repo.remotes.origin.push(ref)
+      print("[git] push ok")  # sichtbar im Flask/Terminal-Log
+    except Exception as e:
+      print(f"[git] push failed: {e}")
+      raise
