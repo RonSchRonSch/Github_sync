@@ -82,6 +82,34 @@ def preview():
 def api_logs():
     return jsonify(logs=log.dump()[:200])
 
+@app.get("/pick-folder")
+def pick_folder():
+    # Lokaler Systemdialog – nur möglich, weil Flask lokal läuft
+    try:
+        import tkinter as tk
+        from tkinter import filedialog
+        import os
+
+        # verhindert das "Python will Zugriff auf …" Dock-Icon / zeigt nur Dialog
+        os.environ.setdefault("TK_SILENCE_DEPRECATION", "1")
+        root = tk.Tk()
+        root.withdraw()
+        root.update()
+        path = filedialog.askdirectory(title="Projektordner wählen")
+        root.destroy()
+
+        if not path:
+            return jsonify(ok=False, path="")
+
+        # Normalisieren (z. B. ~ auflösen)
+        from pathlib import Path
+        path = str(Path(path).expanduser().resolve())
+        return jsonify(ok=True, path=path)
+    except Exception as e:
+        return jsonify(ok=False, error=str(e))
+
+
 if __name__ == "__main__":
-    app.run(debug=False, use_reloader=False)
+    app.run(host="127.0.0.1", port=5000, debug=False, use_reloader=False)
+
 
