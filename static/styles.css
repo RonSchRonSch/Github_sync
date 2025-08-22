@@ -55,17 +55,22 @@ pre#log, pre#log * {
 /* RAW-Liste unter Ereignissen */
 .copy-row {
   display: flex;
-  gap: .8rem;              /* mehr Abstand zwischen Button und Liste */
+  gap: .5rem;
   align-items: center;
-  margin-bottom: 1rem;     /* mehr Luft nach unten */
+  margin-bottom: 0.6rem; /* Abstand Button ↔ Liste */
 }
 
 .copy-row button {
   padding: .45rem .8rem;
-  border: 1px solid var(--border, #ccc);
-  background: var(--btn-bg, #f7f7f7);
+  border: 1px solid #333;      /* wie Log-Rand */
+  background: #1a1a1a;         /* dunkler Button, passend zum Log */
+  color: #eee;
   cursor: pointer;
   border-radius: .5rem;
+}
+
+.copy-row button:hover {
+  background: #222;
 }
 
 .raw-textarea {
@@ -75,26 +80,18 @@ pre#log, pre#log * {
   font-size: 12.5px;
   line-height: 1.35;
   padding: .6rem .7rem;
-  background: var(--panel, #0f0f0f);
-  color: var(--fg, #e6e6e6);
-  border: 1px solid var(--border, #333);
+  background: #0e0e0e;   /* wie Log */
+  color: #ddd;
+  border: 1px solid #333;
   border-radius: .5rem;
   resize: vertical;
-  white-space: pre;        /* keine Umbrüche einfügen */
-  overflow-wrap: normal;   /* keine Wort-Zerlegung */
-  overflow-x: auto;        /* falls URL mal lang ist */
-  min-height: 7.5rem;      /* etwas Grundhöhe für Lesbarkeit */
+  white-space: pre;
+  overflow-wrap: normal;
+  overflow-x: auto;
 }
 
 /* Mobile: Button über dem Textfeld, volle Breite */
 @media (width <= 640px) {
-  .copy-row {
-    flex-direction: column;
-    align-items: stretch;
-    gap: .6rem;
-  }
-
-  .copy-row button {
-    align-self: flex-start;
-  }
+  .copy-row { flex-direction: column; align-items: stretch; gap: .6rem; }
+  .copy-row button { align-self: flex-start; }
 }
