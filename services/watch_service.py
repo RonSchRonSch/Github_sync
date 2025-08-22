@@ -191,17 +191,30 @@ class WatchHandler(FileSystemEventHandler):
       self._schedule_batch()
 
     def on_moved(self, event):
-      if event.is_directory:
-        return
       src = Path(event.src_path)
       dest = Path(event.dest_path)
-      # Quelle als gelöscht behandeln (nur loggen, wenn keine Tilde)
-      if self._is_watched_path(src) and not src.name.endswith("~"):
-        self._deleted.add(src)
-        self.log.add(f"Verschoben: {_display_path(self.root, src)} -> {_display_path(self.root, dest)}")
-      # Ziel als geändert/neu, wenn es beobachtet wird und keine Tilde
-      if dest.exists() and self._is_watched_file(dest) and not dest.name.endswith("~"):
-        self._changed.add(dest)
+
+      # Wenn das Ziel eine „gültige“ Datei ist, wollen wir in jedem Fall reagieren
+      dest_is_file = dest.is_file() or dest.suffix  # robust genug für Editor-Tempfiles
+      if dest_is_file and self._is_watched_file(dest):
+        rel_dest = dest.relative_to(self.root).as_posix()
+
+        # Wenn die Quelle ausgefiltert ist (z. B. versteckte Safe‑Write Datei),
+        # behandeln wir das als *Änderung* des Ziels statt als "Verschoben".
+        if not self._is_watched_path(src):
+          self.changed.add(rel_dest)
+          self.log.add(f"Änderung: {rel_dest}", project=self.project_name)
+          self._schedule_batch()
+          return
+
+      # Normale Move‑Protokollierung (Quelle UND Ziel im Watch‑Scope)
+      if not self._is_watched_path(src) or not self._is_watched_path(dest):
+        return
+
+      rel_src = src.relative_to(self.root).as_posix()
+      rel_dest = dest.relative_to(self.root).as_posix()
+      self.moves.add((rel_src, rel_dest))
+      self.log.add(f"Verschoben: {rel_src} -> {rel_dest}", project=self.project_name)
       self._schedule_batch()
 
       def _is_watched_path(self, p: Path) -> bool:
@@ -220,33 +233,29 @@ class WatchHandler(FileSystemEventHandler):
         return True
 
     def _is_watched_file(self, p: Path) -> bool:
-      """
-      Datei-Filter: setzt auf _is_watched_path auf, prüft dann Datei-Patterns.
-      """
+      # Grundtests (Pfadfilter)
       if not self._is_watched_path(p):
         return False
 
+      # Endungen berücksichtigen (z. B. nur .py)
+      include_exts = set(self.cfg.get("include_exts", []))
+      if include_exts:
+        ext = p.suffix.lower().lstrip(".")
+        if ext not in include_exts:
+          return False
+
       name = p.name
 
-      # Exclude-Patterns (z. B. Tilde-Dateien ".*~$")
-      for pat in self.cfg.get("exclude_file_patterns", []) or []:
-        try:
-          if re.match(pat, name):
-            return False
-        except re.error:
-          # Ungültiges Pattern: sicherheitshalber ignorieren
-          continue
+      # Dateimuster (Regex) – optional
+      for pat in self.cfg.get("exclude_file_patterns", []):
+        if re.match(pat, name):
+          return False
 
-      # Include-Patterns: wenn vorhanden, wirken sie wie eine Whitelist
-      include = self.cfg.get("include_file_patterns", []) or []
-      if include:
-        for pat in include:
-          try:
-            if re.match(pat, name):
-              return True
-          except re.error:
-            continue
-        # keines der Include-Patterns traf
+      inc_patterns = self.cfg.get("include_file_patterns", [])
+      if inc_patterns:
+        for pat in inc_patterns:
+          if re.match(pat, name):
+            return True
         return False
 
       return True
