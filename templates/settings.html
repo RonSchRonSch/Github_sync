@@ -3,23 +3,36 @@
 <h1>Einstellungen</h1>
 <form method="post">
   <label>Projektname <input name="project_name" value="{{ cfg.project_name }}"></label>
-  <label>Projektordner auswählen</label>
-    <input type="file" id="folderPicker" webkitdirectory directory multiple>
-    <input type="hidden" name="project_path" id="projectPath" value="{{ cfg.project_path }}">
+  <label>Projektpfad (absolut)
+  <input name="project_path" id="projectPath" value="{{ cfg.project_path }}" placeholder="/Users/deinName/Projects/DeinProjekt">
+</label>
 
-    <script>
-      document.getElementById("folderPicker").addEventListener("change", (evt) => {
-        if (evt.target.files.length > 0) {
-          // erstes File nehmen, Pfad davon extrahieren
-          const first = evt.target.files[0];
-          // Browser gibt nur relativen Fake-Pfad, daher: wir nehmen das Verzeichnis vom filename
-          let pathParts = first.webkitRelativePath.split("/");
-          pathParts.pop(); // Datei entfernen
-          const folderPath = "/" + pathParts.join("/");
-          document.getElementById("projectPath").value = folderPath;
-        }
-      });
-    </script>
+<div style="margin:6px 0 12px;">
+  <button type="button" id="btnPick">Ordner wählen…</button>
+  <span id="pickedInfo" style="margin-left:8px; color:#555;">
+    {% if cfg.project_path %}Aktuell: <code>{{ cfg.project_path }}</code>{% else %}Noch kein Ordner gewählt{% endif %}
+  </span>
+</div>
+
+<script>
+  document.getElementById("btnPick").addEventListener("click", async () => {
+    try {
+      const res = await fetch("/pick-folder");
+      const data = await res.json();
+      if (data.ok && data.path) {
+        const ipt = document.getElementById("projectPath");
+        ipt.value = data.path;                      // Pfad ins Formular schreiben
+        const info = document.getElementById("pickedInfo");
+        info.innerHTML = 'Gewählt: <code>' + data.path + '</code>';
+      } else {
+        alert("Kein Ordner gewählt" + (data.error ? " – " + data.error : ""));
+      }
+    } catch (e) {
+      alert("Fehler beim Öffnen des Ordner-Dialogs: " + e);
+    }
+  });
+</script>
+
   <label>Branch <input name="branch" value="{{ cfg.branch }}"></label>
   <label>Remote URL <input name="remote_url" value="{{ cfg.remote_url }}" placeholder="https://github.com/user/repo.git"></label>
   <label>WIP-Branch (optional) <input name="wip_branch" value="{{ cfg.wip_branch }}"></label>
