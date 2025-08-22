@@ -1,6 +1,7 @@
 from __future__ import annotations
 import hashlib, shutil, threading, time
 import os
+import re
 from collections import deque
 from datetime import datetime
 from pathlib import Path
@@ -203,34 +204,50 @@ class WatchHandler(FileSystemEventHandler):
         self._changed.add(dest)
       self._schedule_batch()
 
-    # direkt in der Klasse WatchHandler ergänzen (z.B. nach __init__)
-    def _is_watched_path(self, p: Path) -> bool:
-      """Pfadbezogene Filter: Projekt-Root, ausgeschlossene Ordner (.git, venv, etc.)."""
-      try:
-        rel = p.relative_to(self.root)
-      except ValueError:
-        return False
-      # Ordner ausschließen
-      for part in rel.parts:
-        if part in self.cfg.exclude_dirs:
+      def _is_watched_path(self, p: Path) -> bool:
+        """
+        Pfad-Filter: nur unterhalb des Projekt-Roots und keine ausgeschlossenen Ordner.
+        """
+        try:
+          rel = p.relative_to(self.root)
+        except ValueError:
           return False
-      return True
+
+        exclude_dirs = set(self.cfg.get("exclude_dirs", []))
+        for part in rel.parts:
+          if part in exclude_dirs:
+            return False
+        return True
 
     def _is_watched_file(self, p: Path) -> bool:
-      """Dateibezogene Filter: Patterns (inkl/exkl), Tilde, etc."""
+      """
+      Datei-Filter: setzt auf _is_watched_path auf, prüft dann Datei-Patterns.
+      """
       if not self._is_watched_path(p):
         return False
+
       name = p.name
 
-      # Exclude-Patterns (z.B. .*~$ aus deiner config.py)
-      for pat in self.cfg.exclude_file_patterns or []:
-        if re.match(pat, name):
-          return False
+      # Exclude-Patterns (z. B. Tilde-Dateien ".*~$")
+      for pat in self.cfg.get("exclude_file_patterns", []) or []:
+        try:
+          if re.match(pat, name):
+            return False
+        except re.error:
+          # Ungültiges Pattern: sicherheitshalber ignorieren
+          continue
 
-      # Include-Patterns (wenn gesetzt: whiteliste)
-      inc = self.cfg.include_file_patterns or []
-      if inc:
-        return any(re.match(pat, name) for pat in inc)
+      # Include-Patterns: wenn vorhanden, wirken sie wie eine Whitelist
+      include = self.cfg.get("include_file_patterns", []) or []
+      if include:
+        for pat in include:
+          try:
+            if re.match(pat, name):
+              return True
+          except re.error:
+            continue
+        # keines der Include-Patterns traf
+        return False
 
       return True
 
