@@ -1,7 +1,6 @@
 from __future__ import annotations
-import time
 from pathlib import Path
-from typing import Iterable, Set, Optional
+from typing import Iterable, Optional
 from git import Repo, GitCommandError, InvalidGitRepositoryError, NoSuchPathError
 
 def ensure_repo(path: Path) -> Repo:

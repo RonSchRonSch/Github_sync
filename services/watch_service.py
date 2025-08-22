@@ -4,7 +4,6 @@ import hashlib
 import shutil
 import threading
 import time
-import os
 import re
 from collections import deque
 from datetime import datetime
