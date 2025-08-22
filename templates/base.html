@@ -1,29 +1,29 @@
 <!doctype html>
 <html lang="de">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>GitHub Auto Sync</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
-  </head>
-  <body>
-    <nav>
-      <a href="{{ url_for('index') }}">Dashboard</a>
-      <a href="{{ url_for('settings') }}">Einstellungen</a>
-      <a href="{{ url_for('filters') }}">Filter</a>
-      <a href="{{ url_for('preview') }}">Vorschau</a>
-    </nav>
+<head>
+  <meta charset="utf-8">
+  <title>GitHub Auto Sync</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+  <nav>
+    <a href="{{ url_for('index') }}">Dashboard</a>
+    <a href="{{ url_for('settings') }}">Einstellungen</a>
+    <a href="{{ url_for('filters') }}">Filter</a>
+    <a href="{{ url_for('preview') }}">Vorschau</a>
+  </nav>
+  <main>
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
         <div class="flash">
           {% for cat, msg in messages %}
-            <div class="msg {{cat}}">{{ msg }}</div>
+            <div class="msg {{ cat }}">{{ msg }}</div>
           {% endfor %}
         </div>
       {% endif %}
     {% endwith %}
-    <main>
-      {% block content %}{% endblock %}
-    </main>
-  </body>
+    {% block content %}{% endblock %}
+  </main>
+</body>
 </html>

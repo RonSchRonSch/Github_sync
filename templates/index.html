@@ -16,12 +16,19 @@
 <pre id="logbox">{% for line in logs %}{{ line }}
 {% endfor %}</pre>
 
-<script>
-  setInterval(async () => {
-    const res = await fetch("{{ url_for('api_logs') }}");
-    const data = await res.json();
-    const box = document.getElementById("logbox");
-    box.textContent = data.logs.join("\\n") + "\\n";
-  }, 2000);
+<<script>
+  async function refreshLogs() {
+    try {
+      const res = await fetch("/api/logs", { cache: "no-store" });
+      const data = await res.json();
+      // Falls der Server einen Text mit \n liefert -> in echte Zeilenumbrüche wandeln
+      const text = (data.text || "").replace(/\\n/g, "\n");
+      const el = document.getElementById("log");
+      el.textContent = text;                // NICHT innerHTML
+    } catch (e) {}
+  }
+  setInterval(refreshLogs, 1500);
+  refreshLogs();
 </script>
+
 {% endblock %}

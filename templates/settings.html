@@ -1,54 +1,74 @@
 {% extends "base.html" %}
 {% block content %}
+
 <h1>Einstellungen</h1>
-<form method="post">
-  <label>Projektname <input name="project_name" value="{{ cfg.project_name }}"></label>
-  <label>Projektpfad (absolut)
-    <input name="project_path" id="projectPath" value="{{ cfg.project_path }}"
+
+<label>Projektname
+  <input name="project_name" value="{{ cfg.project_name }}">
+</label>
+
+<label>Projektpfad (absolut)
+  <input name="project_path" id="projectPath" value="{{ cfg.project_path }}"
          placeholder="/Users/deinName/Projects/DeinProjekt oder C:\Users\deinName\Projects\DeinProjekt">
+</label>
+
+<div style="margin:6px 0 12px;">
+  <button type="button" id="btnPick">Ordner wählen…</button>
+  <span id="pickedInfo" style="margin-left:8px; color:#555;">
+    {% if cfg.project_path %}Aktuell: <code>{{ cfg.project_path }}</code>{% else %}Noch kein Ordner gewählt{% endif %}
+  </span>
+</div>
+
+<label>Branch
+  <input name="branch" value="{{ cfg.branch }}">
+</label>
+
+<label>Remote URL
+  <input name="remote_url" value="{{ cfg.remote_url }}">
+</label>
+
+<label>WIP-Branch (optional)
+  <input name="wip_branch" value="{{ cfg.wip_branch }}">
+</label>
+
+<div class="row">
+  <label>Auto-Commit <input type="checkbox" name="auto_commit" {% if cfg.auto_commit %}checked{% endif %}></label>
+  <label>Auto-Push <input type="checkbox" name="auto_push" {% if cfg.auto_push %}checked{% endif %}></label>
+</div>
+
+<div class="row">
+  <label>Batch-Fenster (Sek.)
+    <input name="batch_window_sec" value="{{ cfg.batch_window_sec }}">
   </label>
+  <label>Debounce (ms)
+    <input name="debounce_ms" value="{{ cfg.debounce_ms }}">
+  </label>
+  <label>Max. Backups/Datei
+    <input name="max_backups" value="{{ cfg.max_backups }}">
+  </label>
+</div>
 
-  <div style="margin:6px 0 12px;">
-    <button type="button" id="btnPick">Ordner wählen…</button>
-    <span id="pickedInfo" style="margin-left:8px; color:#555;">
-      {% if cfg.project_path %}Aktuell: <code>{{ cfg.project_path }}</code>{% else %}Noch kein Ordner gewählt{% endif %}
-    </span>
-  </div>
+<button type="submit">Speichern</button>
 
-  <script>
-    const btn  = document.getElementById("btnPick");
-    const ipt  = document.getElementById("projectPath");
-    const info = document.getElementById("pickedInfo");
-
-    btn.addEventListener("click", async () => {
-      try {
-        const res  = await fetch("/choose-folder", { cache: "no-store" });
-        const data = await res.json().catch(() => ({}));
-        if (res.ok && data.path) {
-          ipt.value = data.path;
-          info.innerHTML = 'Gewählt: <code>' + data.path + '</code>';
-        } else {
-          const reason = data && (data.error || data.detail) ? (" – " + (data.error || data.detail)) : "";
-          alert("Kein Ordner gewählt" + reason);
-        }
-      } catch (e) {
-        alert("Fehler beim Öffnen des Ordner-Dialogs: " + e);
+<script>
+  const btn  = document.getElementById("btnPick");
+  const ipt  = document.getElementById("projectPath");
+  const info = document.getElementById("pickedInfo");
+  btn.addEventListener("click", async () => {
+    try {
+      const res  = await fetch("/choose-folder", { cache: "no-store" });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.path) {
+        ipt.value = data.path;
+        info.innerHTML = 'Gewählt: <code>' + data.path + '</code>';
+      } else {
+        const reason = data && (data.error || data.detail) ? (" – " + (data.error || data.detail)) : "";
+        alert("Kein Ordner gewählt" + reason);
       }
-    });
-  </script>
+    } catch (e) {
+      alert("Fehler beim Öffnen des Ordner-Dialogs: " + e);
+    }
+  });
+</script>
 
-  <label>Branch <input name="branch" value="{{ cfg.branch }}"></label>
-  <label>Remote URL <input name="remote_url" value="{{ cfg.remote_url }}" placeholder="https://github.com/user/repo.git"></label>
-  <label>WIP-Branch (optional) <input name="wip_branch" value="{{ cfg.wip_branch }}"></label>
-  <div class="row">
-    <label><input type="checkbox" name="auto_commit" {% if cfg.auto_commit %}checked{% endif %}> Auto-Commit</label>
-    <label><input type="checkbox" name="auto_push" {% if cfg.auto_push %}checked{% endif %}> Auto-Push</label>
-  </div>
-  <div class="row">
-    <label>Batch-Fenster (Sek.) <input name="batch_window_sec" type="number" min="1" value="{{ cfg.batch_window_sec }}"></label>
-    <label>Debounce (ms) <input name="debounce_ms" type="number" min="0" value="{{ cfg.debounce_ms }}"></label>
-    <label>Max. Backups/Datei <input name="max_backups" type="number" min="0" value="{{ cfg.max_backups }}"></label>
-  </div>
-  <button>Speichern</button>
-</form>
 {% endblock %}
