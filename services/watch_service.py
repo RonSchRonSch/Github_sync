@@ -1,17 +1,27 @@
 from __future__ import annotations
-import hashlib, shutil, threading, time
+
+import hashlib
+import shutil
+import threading
+import time
 import os
 import re
 from collections import deque
 from datetime import datetime
 from pathlib import Path
 from typing import List, Set, Optional, Dict
+
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
+
 from .git_service import ensure_repo, ensure_branch, ensure_remote, stage_paths, commit_and_push
 
 BACKUP_DIRNAME = ".auto_versions"
 
+
+# -----------------------------
+# kleines In-Memory-Log
+# -----------------------------
 class InMemoryLog:
     def __init__(self, maxlen: int = 2000):
         self._buf = deque(maxlen=maxlen)
@@ -26,19 +36,19 @@ class InMemoryLog:
         with self._lock:
             return list(self._buf)
 
-def _is_under_git(path: Path) -> bool:
-  """True, wenn der Pfad irgendwo unter einem .git/ liegt."""
-  parts = Path(path).resolve().parts
-  return ".git" in parts
 
+# -----------------------------
+# Helfer (Top-Level)
+# -----------------------------
 def _display_path(project_root: Path, p: Path) -> str:
-  """Aus /Users/.../Test_Vector/src/x.py -> Test_Vector/src/x.py."""
-  try:
-    rel = p.relative_to(project_root)
-  except Exception:
-    rel = p
-  proj = project_root.name  # letzter Ordnername
-  return f"{proj}/{rel.as_posix()}"
+    """Aus /Users/.../Test_Vector/src/x.py -> Test_Vector/src/x.py."""
+    try:
+        rel = p.relative_to(project_root)
+    except Exception:
+        rel = p
+    proj = project_root.name
+    return f"{proj}/{rel.as_posix()}"
+
 
 def digest(path: Path) -> str:
     try:
@@ -50,37 +60,53 @@ def digest(path: Path) -> str:
     except Exception:
         return ""
 
+
 def is_watched_file(root: Path, p: Path, include_exts: List[str], exclude_dirs: List[str]) -> bool:
+    """Für die Vorschau – nutzt einfache Regeln."""
     if p.is_dir():
         return False
     try:
         rel = p.relative_to(root)
     except Exception:
         return False
-    if p.suffix.lower() not in {e.lower() for e in include_exts}:
+
+    # .git / Backup-Ordner hart ausschließen
+    if ".git" in rel.parts or BACKUP_DIRNAME in rel.parts:
         return False
-    if ".git" in rel.parts:  # Safety net
-      return False
-    if BACKUP_DIRNAME in rel.parts:
-        return False
+
     for part in rel.parts:
         if part in exclude_dirs:
             return False
+
+    if include_exts:
+        exts = {e.lower() for e in include_exts}
+        ext = p.suffix.lower()
+        # akzeptiere ".py" oder "py" als Konfiguration
+        if ext not in exts and ext.lstrip(".") not in {e.lstrip(".") for e in exts}:
+            return False
+
     return True
+
 
 def iter_watch_files(root: Path, include_exts: List[str], exclude_dirs: List[str]):
     for p in Path(root).rglob("*"):
         if p.is_file() and is_watched_file(root, p, include_exts, exclude_dirs):
             yield p
 
+
+# -----------------------------
+# Watcher
+# -----------------------------
 class WatchHandler(FileSystemEventHandler):
     def __init__(self, root: Path, cfg: dict, log: InMemoryLog):
         self.root = Path(root).resolve()
         self.cfg = cfg
         self.log = log
+
         self.repo = ensure_repo(self.root)
         ensure_branch(self.repo, cfg.get("branch", "main"))
         ensure_remote(self.repo, cfg.get("remote_url"))
+
         self._changed: Set[Path] = set()
         self._deleted: Set[Path] = set()
         self._last_event: Dict[Path, float] = {}
@@ -90,6 +116,7 @@ class WatchHandler(FileSystemEventHandler):
 
         Path(self.root / BACKUP_DIRNAME).mkdir(exist_ok=True)
 
+    # ---------- interne Helfer ----------
     def _debounced(self, p: Path) -> bool:
         now = time.time()
         last = self._last_event.get(p, 0)
@@ -116,7 +143,6 @@ class WatchHandler(FileSystemEventHandler):
         ts = datetime.now().strftime("%Y%m%d-%H%M%S")
         dst = vdir / f"{ts}{p.suffix}"
         shutil.copy2(p, dst)
-        # rotate
         versions = sorted(vdir.glob(f"*{p.suffix}"))
         max_n = int(self.cfg.get("max_backups", 10))
         excess = len(versions) - max_n
@@ -135,130 +161,136 @@ class WatchHandler(FileSystemEventHandler):
             self._timer.start()
 
     def _do_batch(self):
-        # --- Rauschen durch Editor-Replace glätten ---
+        # Editor-Replace (delete+create) glätten
         both = self._changed & self._deleted
         if both:
-          self._deleted -= both
-        # --------------------------------------------
+            self._deleted -= both
+
         with self._lock:
             changed = set(self._changed)
             deleted = set(self._deleted)
             self._changed.clear()
             self._deleted.clear()
+
         try:
             stage_paths(self.repo, self.root, changed, deleted)
             if self.cfg.get("auto_commit", True) or self.cfg.get("auto_push", True):
-              proj = self.root.name
-              msg = f"{proj}: {len(changed)} updated, {len(deleted)} removed @ {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-              commit_and_push(self.repo, self.cfg.get("branch", "main"), f"auto: {msg}",
-                              self.cfg.get("auto_commit", True), self.cfg.get("auto_push", True))
-              self.log.add(f"Commit/Push: {msg}")
+                proj = self.root.name
+                msg = f"{proj}: {len(changed)} updated, {len(deleted)} removed @ {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+                commit_and_push(
+                    self.repo,
+                    self.cfg.get("branch", "main"),
+                    f"auto: {msg}",
+                    self.cfg.get("auto_commit", True),
+                    self.cfg.get("auto_push", True),
+                )
+                self.log.add(f"Commit/Push: {msg}")
         except Exception as e:
             self.log.add(f"Fehler Batch: {e!r}")
 
-    # Events
-    def on_modified(self, event):
-      if event.is_directory:
-        return
-      p = Path(event.src_path)
-      if not self._is_watched_file(p):
-        return
-      self._changed.add(p)
-      if not p.name.endswith("~"):
-        self.log.add(f"Änderung: {_display_path(self.root, p)}")
-      self._schedule_batch()
-
-    def on_created(self, event):
-      if event.is_directory:
-        return
-      p = Path(event.src_path)
-      if not self._is_watched_file(p):
-        return
-      self._changed.add(p)
-      if not p.name.endswith("~"):
-        self.log.add(f"Neu: {_display_path(self.root, p)}")
-      self._schedule_batch()
-
-    def on_deleted(self, event):
-      if event.is_directory:
-        return
-      p = Path(event.src_path)
-      # Auch gelöschte ignorieren, wenn es Tilde-Dateien waren
-      if not self._is_watched_path(p) or p.name.endswith("~"):
-        return
-      self._deleted.add(p)
-      self.log.add(f"Gelöscht: {_display_path(self.root, p)}")
-      self._schedule_batch()
-
-    def on_moved(self, event):
-      src = Path(event.src_path)
-      dest = Path(event.dest_path)
-
-      # Wenn das Ziel eine „gültige“ Datei ist, wollen wir in jedem Fall reagieren
-      dest_is_file = dest.is_file() or dest.suffix  # robust genug für Editor-Tempfiles
-      if dest_is_file and self._is_watched_file(dest):
-        rel_dest = dest.relative_to(self.root).as_posix()
-
-        # Wenn die Quelle ausgefiltert ist (z. B. versteckte Safe‑Write Datei),
-        # behandeln wir das als *Änderung* des Ziels statt als "Verschoben".
-        if not self._is_watched_path(src):
-          self.changed.add(rel_dest)
-          self.log.add(f"Änderung: {rel_dest}", project=self.project_name)
-          self._schedule_batch()
-          return
-
-      # Normale Move‑Protokollierung (Quelle UND Ziel im Watch‑Scope)
-      if not self._is_watched_path(src) or not self._is_watched_path(dest):
-        return
-
-      rel_src = src.relative_to(self.root).as_posix()
-      rel_dest = dest.relative_to(self.root).as_posix()
-      self.moves.add((rel_src, rel_dest))
-      self.log.add(f"Verschoben: {rel_src} -> {rel_dest}", project=self.project_name)
-      self._schedule_batch()
-
-      def _is_watched_path(self, p: Path) -> bool:
-        """
-        Pfad-Filter: nur unterhalb des Projekt-Roots und keine ausgeschlossenen Ordner.
-        """
+    # ---------- Filter ----------
+    def _is_watched_path(self, p: Path) -> bool:
+        """Nur unterhalb des Projekt-Roots und ohne ausgeschlossene Ordner (.git, .auto_versions + config)."""
         try:
-          rel = p.relative_to(self.root)
-        except ValueError:
-          return False
+            rel = p.resolve().relative_to(self.root)
+        except Exception:
+            return False
+
+        # harte Ausschlüsse
+        if ".git" in rel.parts or BACKUP_DIRNAME in rel.parts:
+            return False
 
         exclude_dirs = set(self.cfg.get("exclude_dirs", []))
         for part in rel.parts:
-          if part in exclude_dirs:
-            return False
+            if part in exclude_dirs:
+                return False
         return True
 
     def _is_watched_file(self, p: Path) -> bool:
-      # Grundtests (Pfadfilter)
-      if not self._is_watched_path(p):
-        return False
+        if not self._is_watched_path(p):
+            return False
 
-      # Endungen berücksichtigen (z. B. nur .py)
-      include_exts = set(self.cfg.get("include_exts", []))
-      if include_exts:
-        ext = p.suffix.lower().lstrip(".")
-        if ext not in include_exts:
-          return False
+        # Endungen
+        include_exts = [e.lower() for e in self.cfg.get("include_exts", [])]
+        if include_exts:
+            ext = p.suffix.lower()
+            if ext not in include_exts and ext.lstrip(".") not in [e.lstrip(".") for e in include_exts]:
+                return False
 
-      name = p.name
+        name = p.name
 
-      # Dateimuster (Regex) – optional
-      for pat in self.cfg.get("exclude_file_patterns", []):
-        if re.match(pat, name):
-          return False
+        # Regex-Excludes
+        for pat in self.cfg.get("exclude_file_patterns", []):
+            if re.match(pat, name):
+                return False
 
-      inc_patterns = self.cfg.get("include_file_patterns", [])
-      if inc_patterns:
-        for pat in inc_patterns:
-          if re.match(pat, name):
-            return True
-        return False
+        # Regex-Includes (wenn gesetzt, muss eins matchen)
+        inc_patterns = self.cfg.get("include_file_patterns", [])
+        if inc_patterns:
+            return any(re.match(pat, name) for pat in inc_patterns)
 
-      return True
+        # Tilde-Dateien ausblenden (dein Wunsch)
+        if name.endswith("~"):
+            return False
+
+        return True
+
+    # ---------- Events ----------
+    def on_modified(self, event):
+        if event.is_directory:
+            return
+        p = Path(event.src_path)
+        if not self._is_watched_file(p):
+            return
+        self._changed.add(p)
+        if not p.name.endswith("~"):
+            self.log.add(f"Änderung: {_display_path(self.root, p)}")
+        self._schedule_batch()
+
+    def on_created(self, event):
+        if event.is_directory:
+            return
+        p = Path(event.src_path)
+        if not self._is_watched_file(p):
+            return
+        self._changed.add(p)
+        if not p.name.endswith("~"):
+            self.log.add(f"Neu: {_display_path(self.root, p)}")
+        self._schedule_batch()
+
+    def on_deleted(self, event):
+        if event.is_directory:
+            return
+        p = Path(event.src_path)
+        if not self._is_watched_path(p) or p.name.endswith("~"):
+            return
+        self._deleted.add(p)
+        self.log.add(f"Gelöscht: {_display_path(self.root, p)}")
+        self._schedule_batch()
+
+    def on_moved(self, event):
+        src = Path(event.src_path)
+        dest = Path(event.dest_path)
+
+        # Wenn Ziel gültig ist, behandeln wir es wie Änderung (typisch bei Atomic-Save)
+        if self._is_watched_file(dest):
+            self._changed.add(dest)
+            if not dest.name.endswith("~"):
+                self.log.add(f"Verschoben: {_display_path(self.root, src)} -> {_display_path(self.root, dest)}")
+            self._schedule_batch()
+            return
+
+        # Falls Quelle/ Ziel außerhalb des Watch-Scopes, ignoriere
+        if not self._is_watched_path(src) and not self._is_watched_path(dest):
+            return
+
+        # Standard: Quelle entfernt
+        if self._is_watched_path(src):
+            self._deleted.add(src)
+            self.log.add(f"Gelöscht: {_display_path(self.root, src)}")
+
+        self._schedule_batch()
+
 
 class WatchService:
     def __init__(self, cfg: dict, log: InMemoryLog):
@@ -291,4 +323,7 @@ class WatchService:
 
     def preview_files(self) -> list[str]:
         root = Path(self.cfg["project_path"]).expanduser()
-        return [str(p.relative_to(root)) for p in iter_watch_files(root, self.cfg["include_exts"], self.cfg["exclude_dirs"])]
+        return [
+            str(p.relative_to(root))
+            for p in iter_watch_files(root, self.cfg.get("include_exts", []), self.cfg.get("exclude_dirs", []))
+        ]
