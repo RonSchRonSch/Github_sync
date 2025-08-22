@@ -51,3 +51,50 @@ pre#log, pre#log * {
   max-width: 100%;
   overflow-wrap: anywhere;
 }
+
+/* RAW-Liste unter Ereignissen */
+.copy-row {
+  display: flex;
+  gap: .8rem;              /* mehr Abstand zwischen Button und Liste */
+  align-items: center;
+  margin-bottom: 1rem;     /* mehr Luft nach unten */
+}
+
+.copy-row button {
+  padding: .45rem .8rem;
+  border: 1px solid var(--border, #ccc);
+  background: var(--btn-bg, #f7f7f7);
+  cursor: pointer;
+  border-radius: .5rem;
+}
+
+.raw-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12.5px;
+  line-height: 1.35;
+  padding: .6rem .7rem;
+  background: var(--panel, #0f0f0f);
+  color: var(--fg, #e6e6e6);
+  border: 1px solid var(--border, #333);
+  border-radius: .5rem;
+  resize: vertical;
+  white-space: pre;        /* keine Umbrüche einfügen */
+  overflow-wrap: normal;   /* keine Wort-Zerlegung */
+  overflow-x: auto;        /* falls URL mal lang ist */
+  min-height: 7.5rem;      /* etwas Grundhöhe für Lesbarkeit */
+}
+
+/* Mobile: Button über dem Textfeld, volle Breite */
+@media (width <= 640px) {
+  .copy-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: .6rem;
+  }
+
+  .copy-row button {
+    align-self: flex-start;
+  }
+}

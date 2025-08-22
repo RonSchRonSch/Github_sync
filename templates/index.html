@@ -39,4 +39,55 @@
   refreshLogs();
   setInterval(refreshLogs, 1500);
 </script>
+
+  <!-- RAW-Links aus der Vorschau -->
+<section class="card mt">
+  <header class="card-header">
+    <h3>Vorschau (RAW-Links)</h3>
+    <div class="copy-row">
+      <button id="btnCopyRaw" type="button">Copy</button>
+    </div>
+  </header>
+  <div class="card-body">
+    <textarea id="rawList" class="raw-textarea" readonly rows="6" spellcheck="false">
+{% for url in preview_raw_urls %}{{ url }}
+{% endfor %}
+    </textarea>
+    {% if not preview_raw_urls %}
+      <p class="muted">Keine Dateien in der Vorschau (Watcher gestoppt oder Filter greifen).</p>
+    {% endif %}
+  </div>
+</section>
+
+<script>
+  (function () {
+    const btn = document.getElementById('btnCopyRaw');
+    const ta  = document.getElementById('rawList');
+    if (btn && ta) {
+      btn.addEventListener('click', async () => {
+        try {
+          // Inhalt säubern: führende/anhängende Leerzeilen entfernen
+          const text = (ta.value || '').trim();
+          if (!text) return;
+          ta.focus();
+          ta.select();
+          ta.setSelectionRange(0, text.length);
+          await navigator.clipboard.writeText(text);
+          btn.textContent = 'Kopiert!';
+          setTimeout(() => (btn.textContent = 'Copy'), 1200);
+        } catch (e) {
+          // Fallback: execCommand (ältere Browser)
+          try {
+            ta.focus();
+            ta.select();
+            document.execCommand('copy');
+            btn.textContent = 'Kopiert!';
+            setTimeout(() => (btn.textContent = 'Copy'), 1200);
+          } catch (_) {}
+        }
+      });
+    }
+  })();
+</script>
+
 {% endblock %}
