@@ -203,6 +203,37 @@ class WatchHandler(FileSystemEventHandler):
         self._changed.add(dest)
       self._schedule_batch()
 
+    # direkt in der Klasse WatchHandler ergänzen (z.B. nach __init__)
+    def _is_watched_path(self, p: Path) -> bool:
+      """Pfadbezogene Filter: Projekt-Root, ausgeschlossene Ordner (.git, venv, etc.)."""
+      try:
+        rel = p.relative_to(self.root)
+      except ValueError:
+        return False
+      # Ordner ausschließen
+      for part in rel.parts:
+        if part in self.cfg.exclude_dirs:
+          return False
+      return True
+
+    def _is_watched_file(self, p: Path) -> bool:
+      """Dateibezogene Filter: Patterns (inkl/exkl), Tilde, etc."""
+      if not self._is_watched_path(p):
+        return False
+      name = p.name
+
+      # Exclude-Patterns (z.B. .*~$ aus deiner config.py)
+      for pat in self.cfg.exclude_file_patterns or []:
+        if re.match(pat, name):
+          return False
+
+      # Include-Patterns (wenn gesetzt: whiteliste)
+      inc = self.cfg.include_file_patterns or []
+      if inc:
+        return any(re.match(pat, name) for pat in inc)
+
+      return True
+
 class WatchService:
     def __init__(self, cfg: dict, log: InMemoryLog):
         self.cfg = cfg
