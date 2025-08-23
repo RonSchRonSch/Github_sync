@@ -61,30 +61,40 @@ def digest(path: Path) -> str:
 
 
 def is_watched_file(root: Path, p: Path, include_exts: List[str], exclude_dirs: List[str]) -> bool:
-    """Für die Vorschau – nutzt einfache Regeln."""
-    if p.is_dir():
-        return False
-    try:
-        rel = p.relative_to(root)
-    except Exception:
-        return False
+  """Für die Vorschau: erlaubt Endungen (.py, .txt) **und** exakte Dateinamen (z. B. Dockerfile)."""
+  if p.is_dir():
+    return False
+  try:
+    rel = p.relative_to(root)
+  except Exception:
+    return False
 
-    # .git / Backup-Ordner hart ausschließen
-    if ".git" in rel.parts or BACKUP_DIRNAME in rel.parts:
-        return False
+  # harte Ausschlüsse
+  if ".git" in rel.parts or BACKUP_DIRNAME in rel.parts:
+    return False
+  for part in rel.parts:
+    if part in exclude_dirs:
+      return False
 
-    for part in rel.parts:
-        if part in exclude_dirs:
-            return False
+  # --- NEU: beide Arten zulassen (Endungen + exakte Namen) ---
+  inc_list = [s.strip() for s in (include_exts or []) if s.strip()]
+  if inc_list:
+    name = p.name
+    suffix = p.suffix.lower()  # inklusive Punkt, z. B. ".py"
+    # normalisierte Endungen (immer mit Punkt, lowercased)
+    norm_exts = {(e if e.startswith(".") else f".{e}").lower() for e in inc_list if
+                 "." in e or e.lower() in {"md", "py", "txt", "yml", "yaml", "ini", "toml", "sql", "js", "ts", "html",
+                                           "css"}}
+    # exakte Dateinamen (ohne Punkt), z. B. "Dockerfile", "Makefile"
+    exact_names = {e for e in inc_list if "." not in e}
 
-    if include_exts:
-        exts = {e.lower() for e in include_exts}
-        ext = p.suffix.lower()
-        # akzeptiere ".py" oder "py" als Konfiguration
-        if ext not in exts and ext.lstrip(".") not in {e.lstrip(".") for e in exts}:
-            return False
+    if name in exact_names:
+      return True
+    if suffix in norm_exts or suffix.lstrip(".") in {e.lstrip(".") for e in norm_exts}:
+      return True
+    return False
 
-    return True
+  return True
 
 
 def iter_watch_files(root: Path, include_exts: List[str], exclude_dirs: List[str]):
@@ -173,17 +183,27 @@ class WatchHandler(FileSystemEventHandler):
 
         try:
             stage_paths(self.repo, self.root, changed, deleted)
-            if self.cfg.get("auto_commit", True) or self.cfg.get("auto_push", True):
-                proj = self.root.name
-                msg = f"{proj}: {len(changed)} updated, {len(deleted)} removed @ {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-                commit_and_push(
-                    self.repo,
-                    self.cfg.get("branch", "main"),
-                    f"auto: {msg}",
-                    self.cfg.get("auto_commit", True),
-                    self.cfg.get("auto_push", True),
-                )
-                self.log.add(f"Commit/Push: {msg}")
+            # --- Commit/Push nur nach Flags, und ehrlich loggen ---
+            do_commit = bool(self.cfg.get("auto_commit", True))
+            do_push = bool(self.cfg.get("auto_push", True))
+
+            if do_commit or do_push:
+              proj = self.root.name
+              msg = f"{proj}: {len(changed)} updated, {len(deleted)} removed @ {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+
+              # Diagnosezeile – hilft beim Verifizieren, dass auto_push wirklich False ist
+              self.log.add(f"Batch-Flags: auto_commit={do_commit}, auto_push={do_push}")
+
+              commit_and_push(
+                self.repo,
+                self.cfg.get("branch", "main"),
+                f"auto: {msg}",
+                do_commit,
+                do_push
+              )
+
+              label = "Commit+Push" if do_push else "Commit"
+              self.log.add(f"{label}: {msg}")
         except Exception as e:
             self.log.add(f"Fehler Batch: {e!r}")
 
@@ -209,14 +229,30 @@ class WatchHandler(FileSystemEventHandler):
         if not self._is_watched_path(p):
             return False
 
-        # Endungen
-        include_exts = [e.lower() for e in self.cfg.get("include_exts", [])]
-        if include_exts:
-            ext = p.suffix.lower()
-            if ext not in include_exts and ext.lstrip(".") not in [e.lstrip(".") for e in include_exts]:
-                return False
+        # Endungen / exakte Namen
+        inc_list = [s.strip() for s in self.cfg.get("include_exts", []) if s.strip()]
+        if inc_list:
+          name = p.name
+          suffix = p.suffix.lower()
 
-        name = p.name
+          # normalisierte Endungen (immer mit Punkt, z. B. ".py")
+          norm_exts = {
+            (e if e.startswith(".") else f".{e}").lower()
+            for e in inc_list
+            if "." in e or e.lower() in {
+              "md", "py", "txt", "yml", "yaml", "ini", "toml", "sql", "js", "ts", "html", "css"
+            }
+          }
+
+          # exakte Dateinamen (z. B. "Dockerfile", "Makefile")
+          exact_names = {e for e in inc_list if "." not in e}
+
+          if name in exact_names:
+            pass  # erlaubt
+          elif suffix in norm_exts or suffix.lstrip(".") in {e.lstrip(".") for e in norm_exts}:
+            pass  # erlaubt
+          else:
+            return False
 
         # Regex-Excludes
         for pat in self.cfg.get("exclude_file_patterns", []):
@@ -236,15 +272,26 @@ class WatchHandler(FileSystemEventHandler):
 
     # ---------- Events ----------
     def on_modified(self, event):
-        if event.is_directory:
-            return
-        p = Path(event.src_path)
-        if not self._is_watched_file(p):
-            return
-        self._changed.add(p)
-        if not p.name.endswith("~"):
-            self.log.add(f"Änderung: {_display_path(self.root, p)}")
-        self._schedule_batch()
+      if event.is_directory:
+          return
+      p = Path(event.src_path)
+
+      # 1) Ausfiltern
+      if not self._is_watched_file(p):
+          return
+
+      # 2) Entprellen (mehrere schnelle FS-Events)
+      if self._debounced(p):
+          return
+
+      # 3) Nur loggen, wenn sich der Dateiinhalt wirklich geändert hat
+      if not self._digest_changed(p):
+          return
+
+      self._changed.add(p)
+      if not p.name.endswith("~"):
+          self.log.add(f"Änderung: {_display_path(self.root, p)}")
+      self._schedule_batch()
 
     def on_created(self, event):
         if event.is_directory:

@@ -8,6 +8,7 @@ from pathlib import Path
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 from models.config import ConfigStore
 from services.watch_service import WatchService, InMemoryLog
+from services.git_service import mirror_force_with_lease, ensure_repo
 
 
 def _purge_pycache(root_path: str):
@@ -113,10 +114,36 @@ def start_watch():
         flash("Bitte zuerst einen Projektpfad in den Einstellungen setzen.", "warning")
         return redirect(url_for("settings"))
     try:
-        # NEU: vor dem Start Caches bereinigen
-        _safe_cleanup_before_start(cfg_store.data, log)
-        watch.start()
-        flash("Watcher gestartet.", "success")
+      # NEU: vor dem Start Caches bereinigen
+      _safe_cleanup_before_start(cfg_store.data, log)
+
+      # --- Remote vor Start auf lokalen Stand spiegeln (sicherer Force-Push) ---
+      proj = cfg_store.data.get("project_path")
+      branch = (cfg_store.data.get("branch") or "main").strip()
+      remote_url = (cfg_store.data.get("remote_url") or "").strip()
+
+      if proj and remote_url:
+        try:
+          repo = ensure_repo(Path(proj))
+          mirror_force_with_lease(
+            repo=repo,
+            branch=branch,
+            remote="origin",
+            snapshot_msg="mirror_on_start"
+          )
+          log.add(f"Remote gespiegelt: origin/{branch} (mirror_on_start)")
+        except Exception as e:
+          # Wenn Spiegeln fehlschlägt, trotzdem weiter starten – aber Hinweis ins Log/UI
+          log.add(f"Spiegeln fehlgeschlagen: {e!r}")
+          flash(f"Warnung: Remote konnte nicht gespiegelt werden ({e})", "warning")
+      else:
+        # Kein Remote gesetzt – ist ok, dann überspringen
+        if not remote_url:
+          log.add("Kein Remote gesetzt – Spiegeln übersprungen")
+
+      # Watcher starten
+      watch.start()
+      flash("Watcher gestartet.", "success")
     except Exception as e:
         flash(f"Fehler: {e}", "danger")
     return redirect(url_for("index"))
@@ -178,10 +205,12 @@ def settings():
         d["remote_url"] = request.form.get("remote_url", "").strip()
         d["auto_commit"] = bool(request.form.get("auto_commit"))
         d["auto_push"] = bool(request.form.get("auto_push"))
+        d["mirror_on_start"] = bool(request.form.get("mirror_on_start"))
         d["batch_window_sec"] = float(request.form.get("batch_window_sec", "60"))
         d["debounce_ms"] = int(request.form.get("debounce_ms", "600"))
         d["max_backups"] = int(request.form.get("max_backups", "10"))
         d["wip_branch"] = request.form.get("wip_branch", "").strip()
+        d["flash_duration_sec"] = int(request.form.get("flash_duration_sec", "10"))
         cfg_store.save()
         flash("Einstellungen gespeichert.", "success")
         return redirect(url_for("settings"))
@@ -227,7 +256,7 @@ def _raw_base_from_remote(remote_url: str, branch: str) -> str:
     Unterstützt https://github.com/<owner>/<repo>.git
     """
     try:
-        # Beispiel: https://github.com/RonSchRonSch/PyCharm_auto.git
+        # Beispiel: https://github.com/RonSchLabs/PyCharm_auto.git
         if "github.com" in remote_url:
             tail = remote_url.split("github.com/", 1)[1]
             tail = tail.removesuffix(".git")
@@ -253,6 +282,25 @@ def api_raw_links():
         return jsonify(ok=True, text=text, lines=lines)
     except Exception as e:
         return jsonify(ok=False, error=str(e), text="", lines=[])
+
+
+@app.route("/info")
+def info():
+    version = None
+    try:
+        from git import Repo
+        proj = cfg_store.data.get("project_path")
+        if proj and Path(proj, ".git").exists():
+            repo = Repo(proj)
+            version = repo.head.commit.hexsha[:7]
+    except Exception as e:
+        log.add(f"Info-Fehler: {e!r}")   # optional ins Log
+
+    # HIER: cfg (und optional running) mitgeben
+    return render_template("info.html",
+                           version=version,
+                           cfg=cfg_store.data,
+                           running=watch.running())
 
 
 @app.get("/choose-folder")
@@ -383,7 +431,7 @@ if __name__ == "__main__":
             _open_url_new_window(
               f"http://{APP_HOST}:{APP_PORT}",
               APP_BROWSER,
-              width=1000, height=1000, x=100, y=80
+              width=1000, height=1100, x=100, y=80
             )
 
         threading.Thread(target=_delayed_open, daemon=True).start()

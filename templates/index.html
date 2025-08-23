@@ -28,9 +28,23 @@
 </section>
 
 <script>
-  // Logs live nachladen
+  // Auto-Scroll nur, wenn User "oben" ist
+  let logAutoScrollTop = true;
+
+  (function attachLogScrollListener () {
+    const el = document.getElementById('log');
+    if (!el) return;
+    el.addEventListener('scroll', () => {
+      const atTop = el.scrollTop <= 8;
+      logAutoScrollTop = atTop;
+    }, { passive: true });
+  })();
+
   async function refreshLogs() {
     try {
+      const el  = document.getElementById("log");
+      if (!el) return;
+
       const res  = await fetch("/api/logs", { cache: "no-store" });
       const data = await res.json();
 
@@ -40,13 +54,16 @@
       } else if (Array.isArray(data?.lines)) {
         text = data.lines.join("\n");
       }
-
       text = text.replace(/\\n/g, "\n");
-      const el = document.getElementById("log");
+
       el.textContent = text;
-      el.scrollTop = el.scrollHeight;
-    } catch (e) { /* still */ }
+
+      if (logAutoScrollTop) {
+        el.scrollTop = 0;
+      }
+    } catch (e) { /* ignore */ }
   }
+
   refreshLogs();
   setInterval(refreshLogs, 1500);
 </script>
@@ -59,8 +76,8 @@
       <button id="btnCopyRaw" type="button" class="btn btn--ghost">Copy</button>
     </div>
   </header>
-    <div class="card-body">
-      <pre id="rawList" class="log"></pre>
+  <div class="card-body">
+    <pre id="rawList" class="log"></pre>
     {% if not preview_raw_urls %}
       <p class="muted">Keine Dateien in der Vorschau (Watcher gestoppt oder Filter greifen).</p>
     {% endif %}
@@ -68,50 +85,64 @@
 </section>
 
 <script>
+  // Rendert klickbare RAW-Zeilen ohne zusätzliche Leerzeilen
+  function renderRawLines(lines) {
+    const pre = document.getElementById("rawList");
+    if (!pre) return;
+    pre.replaceChildren(); // leeren
+
+    (lines || [])
+      .filter(l => l && l.trim() !== "")
+      .forEach((url) => {
+        const span = document.createElement("span");
+        span.className = "raw-line";
+        span.textContent = url;
+        span.title = "Klicken zum Kopieren";
+        span.addEventListener("click", async () => {
+          try {
+            await navigator.clipboard.writeText(url);
+            span.classList.add("copied");
+            setTimeout(() => span.classList.remove("copied"), 700);
+          } catch {}
+        });
+        pre.appendChild(span); // kein \n anhängen → keine Leerzeilen
+      });
+  }
+
   // RAW-Liste live nachladen
   async function refreshRawLinks() {
     try {
       const res  = await fetch("/api/raw-links", { cache: "no-store" });
       const data = await res.json();
       if (data && data.ok) {
-        const pre = document.getElementById("rawList");
-        if (pre) pre.textContent = data.text || "";
+        const lines = Array.isArray(data.lines)
+          ? data.lines
+          : (data.text || "").split("\n").filter(l => l.trim() !== "");
+        renderRawLines(lines);
       }
-    } catch (e) { /* still */ }
+    } catch { /* still */ }
   }
   refreshRawLinks();
   setInterval(refreshRawLinks, 2000);
 
-  // Copy-Button für <pre>-Inhalt
+  // Copy-Button (kopiert weiterhin ALLE Zeilen)
   (function () {
     const btn = document.getElementById('btnCopyRaw');
     const pre = document.getElementById('rawList');
     if (!btn || !pre) return;
 
     btn.addEventListener('click', async () => {
-      const text = (pre.textContent || '').trim();
+      const text = Array.from(pre.querySelectorAll(".raw-line"))
+                        .map(el => el.textContent || "")
+                        .join("\n")
+                        .trim();
       if (!text) return;
 
       try {
-        if (navigator.clipboard?.writeText) {
-          await navigator.clipboard.writeText(text);
-          btn.textContent = 'Kopiert!';
-          setTimeout(() => (btn.textContent = 'Copy'), 1200);
-          return;
-        }
+        await navigator.clipboard.writeText(text);
+        btn.textContent = 'Kopiert!';
+        setTimeout(() => (btn.textContent = 'Copy'), 1200);
       } catch {}
-
-      // Fallback ohne execCommand: temporäres Textarea
-      const ta = document.createElement('textarea');
-      ta.value = text;
-      ta.style.position = 'fixed';
-      ta.style.left = '-9999px';
-      document.body.appendChild(ta);
-      ta.select();
-      try { document.execCommand && document.execCommand('copy'); } catch {}
-      document.body.removeChild(ta);
-      btn.textContent = 'Kopiert!';
-      setTimeout(() => (btn.textContent = 'Copy'), 1200);
     });
   })();
 </script>

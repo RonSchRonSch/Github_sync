@@ -13,9 +13,11 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "batch_window_sec": 60,
     "debounce_ms": 600,
     "max_backups": 10,
-    "include_exts": [".py", ".json", ".md", ".yml", ".yaml", ".ini", ".toml", ".sql", ".js", ".ts", ".html", ".css"],
+    "include_exts": ["Dockerfile", ".py", ".json", ".md", ".yml", ".yaml", ".ini", ".toml", ".sql", ".js", ".ts", ".html", ".css"],
     "exclude_dirs": ["style_check", ".git", ".idea", ".vscode", "__pycache__", ".venv", "venv", "node_modules", "dist", "build", ".auto_versions"],
     "wip_branch": "",
+    "mirror_on_start": False,  # Beim Start lokalen Stand als Snapshot committen & pushen
+    "flash_duration_sec": 10,  # Dauer für Flash-Messages in Sekunden
 }
 
 class ConfigStore:

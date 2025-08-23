@@ -12,17 +12,31 @@
     <a href="{{ url_for('settings') }}">Einstellungen</a>
     <a href="{{ url_for('filters') }}">Filter</a>
     <a href="{{ url_for('preview') }}">Vorschau</a>
+    <a href="{{ url_for('info') }}">Info</a>
   </nav>
   <main>
     {% with messages = get_flashed_messages(with_categories=true) %}
-      {% if messages %}
-        <div class="flash">
-          {% for cat, msg in messages %}
-            <div class="msg {{ cat }}">{{ msg }}</div>
-          {% endfor %}
-        </div>
-      {% endif %}
-    {% endwith %}
+  {% if messages %}
+    <div id="flash-messages">
+      {% for category, message in messages %}
+        <div class="msg {{ category }}">{{ message }}</div>
+      {% endfor %}
+    </div>
+  {% endif %}
+{% endwith %}
+
+<script>
+  (function () {
+    const el = document.getElementById("flash-messages");
+    if (!el) return;
+    const secs = {{ cfg.flash_duration_sec|default(10) }};
+    setTimeout(() => {
+      el.style.transition = "opacity 0.5s ease";
+      el.style.opacity = "0";
+      setTimeout(() => el.remove(), 500);
+    }, secs * 1000);
+  })();
+</script>
     {% block content %}{% endblock %}
   </main>
 </body>

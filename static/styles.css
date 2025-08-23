@@ -15,8 +15,7 @@ label { display: block; margin: 8px 0; }
 input, select, textarea { width: 100%; padding: 6px; }
 .inline-row { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
 
-/* ---- Buttons (einheitlich) -------------------------------------------- */
-/* ---- Buttons (einheitlich mit Glas-Effekt) ------------------------------ */
+/* ---- Buttons (einheitlich mit Glas-Effekt) ---------------------------- */
 .btn {
   display: inline-flex;
   align-items: center;
@@ -35,33 +34,24 @@ input, select, textarea { width: 100%; padding: 6px; }
   user-select: none;
   text-decoration: none;
 }
-
 .btn:hover {
   background: linear-gradient(to top right, #4d594f, #1d2e20);
   border-color: #000000;
   color: #ffffff;
 }
+.btn:disabled { opacity: .55; cursor: not-allowed; }
 
-.btn:disabled {
-  opacity: .55;
-  cursor: not-allowed;
-}
-
-/* Varianten (falls du sie behalten willst, aber sie sehen gleich aus) */
-.btn--primary,
-.btn--danger,
-.btn--ghost {
+/* Variant-Klassen können bleiben – gleiches Styling */
+.btn--primary, .btn--danger, .btn--ghost {
   background: linear-gradient(to top right, #36403a, #869688);
   border: 2px solid #000000;
   color: #ffffff;
 }
-.btn--primary:hover,
-.btn--danger:hover,
-.btn--ghost:hover {
+.btn--primary:hover, .btn--danger:hover, .btn--ghost:hover {
   background: linear-gradient(to top right, #4d594f, #1d2e20);
 }
 
-/* Fallback: style <button> ohne Klasse ähnlich */
+/* Fallback für nackte <button> (wird kaum noch genutzt) */
 button { padding: .45rem .8rem; border-radius: .5rem; border: 1px solid #333; background: #1a1a1a; color: #eee; }
 button:disabled { opacity: .6; cursor: not-allowed; }
 
@@ -76,21 +66,24 @@ button:disabled { opacity: .6; cursor: not-allowed; }
 .off { color: #a00; font-weight: 700; }
 .muted { color: #000000; }
 .mt { margin-top: 12px; }
-.mt-small {
-  margin-top: 0.8rem; /* kleinerer Abstand nach oben */
-}
+.mt-small { margin-top: 0.8rem; }
 
 /* ---- Cards ------------------------------------------------------------- */
-/* Karten-Container */
 .card {
-  background: #ffffff;    /* jetzt weiß */
-  color: #000000;         /* Standard-Schriftfarbe */
+  background: #ffffff;
+  color: #000000;
   border: 1px solid #ccc;
   border-radius: 6px;
   padding: 0.1rem 1rem;
   margin-top: 1rem;
 }
-.card-header { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; border-bottom: 1px solid #2b2b2b; }
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  border-bottom: 1px solid #e0e0e0;
+}
 .card-body { padding: 12px; }
 
 /* ---- Log / Console ----------------------------------------------------- */
@@ -111,7 +104,9 @@ pre#log, pre#log * { max-width: 100%; overflow-wrap: anywhere; }
 #rawList { height: 100px; }
 
 /* ---- RAW-Links Bereich ------------------------------------------------- */
-.copy-row { display: flex; gap: .5rem; align-items: center;}
+.copy-row { display: flex; gap: .5rem; align-items: center; }
+
+/* (textarea-Stile bleiben für evtl. Wiederverwendung vorhanden) */
 .raw-textarea {
   width: 100%;
   box-sizing: border-box;
@@ -119,7 +114,7 @@ pre#log, pre#log * { max-width: 100%; overflow-wrap: anywhere; }
   font-size: 12.5px;
   line-height: 1.35;
   padding: .6rem .7rem;
-  background: #0f0f0f;   /* dunkel */
+  background: #0f0f0f;
   color: #e6e6e6;
   border: 1px solid #333;
   border-radius: .5rem;
@@ -128,14 +123,26 @@ pre#log, pre#log * { max-width: 100%; overflow-wrap: anywhere; }
   overflow-x: auto;
 }
 
+/* Zeilen im RAW-<pre> ohne zusätzliche Abstände; klick-kopierbar */
+#rawList .raw-line {
+  display: block;         /* eigene Zeile, kein \n nötig */
+  margin: 0;
+  padding: .15rem .25rem;
+  line-height: 1.35;
+  cursor: pointer;
+  border-radius: .25rem;
+  user-select: text;
+}
+#rawList .raw-line:hover { background: rgba(255,255,255,.06); }
+#rawList .raw-line.copied { background: #1f2a1f; outline: 1px solid #5a8a5a; outline-offset: 2px; }
+
 /* ---- Settings-Layout --------------------------------------------------- */
 .settings-form { max-width: 980px; }
 .settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; }
 .settings-grid .full { grid-column: 1 / -1; }
 .settings-actions { margin-top: 14px; }
 
-/* ---- Preview-Liste ----------------------------------------------------- */
+/* ---- Preview-Liste (Seite /preview) ----------------------------------- */
 .preview-list { list-style: none; padding: 0; margin: 0; }
 .preview-list li { padding: 4px 0; border-bottom: 1px dashed #2b2b2b; }
 .preview-list li:last-child { border-bottom: 0; }
-

@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h1>ℹ️ Info</h1>
+
+<p><strong>Projekt:</strong> GitHub Auto Sync</p>
+<p>Ein leichtgewichtiges Auto-Commit/Auto-Push Tool mit Flask-UI, das Änderungen im Projektordner überwacht, Backups erstellt und mit GitHub synchronisiert.</p>
+
+<ul>
+  <li><a href="https://github.com/RonSchLabs/Github_sync/blob/main/README.md" target="_blank">📘 README (Dokumentation)</a></li>
+  <li><a href="https://github.com/RonSchLabs/Github_sync/blob/main/LICENSE" target="_blank">📄 Lizenz (MIT)</a></li>
+</ul>
+
+<p><em>Version:</em> {{ version or "unbekannt" }}</p>
+
+{% endblock %}
