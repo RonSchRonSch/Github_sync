@@ -1,56 +1,96 @@
+/* ---- Base -------------------------------------------------------------- */
+:root { color-scheme: light dark; }
+* { box-sizing: border-box; }
+html, body { max-width: 100%; overflow-x: hidden; }
 body { font-family: system-ui, Arial, sans-serif; margin: 0; }
+main { padding: 16px; }
+code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
+
+/* ---- Topbar ------------------------------------------------------------ */
 nav { background: #111; color: #fff; padding: 10px; }
 nav a { color: #fff; margin-right: 14px; text-decoration: none; }
-main { padding: 16px; }
-label { display:block; margin: 8px 0; }
-input, textarea { width: 100%; padding: 6px; box-sizing: border-box; }
-.row { display: flex; gap: 16px; }
-.row label { flex: 1; }
-.flash { padding: 8px 16px; }
-.msg { padding: 6px 8px; margin: 4px 0; border-radius: 4px; }
-.msg.success{ background:#e6ffed; }
-.msg.warning{ background:#fff9e6; }
-.msg.info{ background:#e6f0ff; }
-.msg.danger{ background:#ffe6e6; }
-.ok { color: #0a0; font-weight: bold; }
-.off { color: #a00; font-weight: bold; }
-pre#logbox { background:#0b0b0b; color:#d7d7d7; padding:10px; height:300px; overflow:auto; border-radius:6px; }
 
-/* --- Layout-Schutz gegen horizontales Scrollen --- */
-html, body {
-  max-width: 100%;
-  overflow-x: hidden;
-}
+/* ---- Forms ------------------------------------------------------------- */
+label { display: block; margin: 8px 0; }
+input, select, textarea { width: 100%; padding: 6px; }
+.inline-row { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
 
-/* Falls du einen äußeren Wrapper hast: */
-.container {
-  box-sizing: border-box;
-  width: 100%;
-  padding-right: 12px;  /* verhindert optischen Überstand rechts */
-}
-
-button {
-  padding: .45rem .8rem;
-  border: 1px solid #ccc;
-  background: #f7f7f7;
+/* ---- Buttons (einheitlich) -------------------------------------------- */
+/* ---- Buttons (einheitlich mit Glas-Effekt) ------------------------------ */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 120px;
+  height: 38px;
+  padding: 0 .8rem;
+  font-size: 15px;
+  font-family: Arial, sans-serif;
+  color: #ffffff;
+  background: linear-gradient(to top right, #36403a, #869688);
+  border: 2px solid #000000;
+  border-radius: 10px;
   cursor: pointer;
-  border-radius: .5rem;
-  font-size: 0.9rem;
-  transition: background 0.2s, border-color 0.2s;
+  transition: all 0.25s ease;
+  user-select: none;
+  text-decoration: none;
 }
 
-button:hover {
-  background: #eee;
-  border-color: #999;
+.btn:hover {
+  background: linear-gradient(to top right, #4d594f, #1d2e20);
+  border-color: #000000;
+  color: #ffffff;
 }
 
-button:disabled {
-  background: #f0f0f0;
-  color: #999;
+.btn:disabled {
+  opacity: .55;
   cursor: not-allowed;
 }
 
-/* Log-Fläche */
+/* Varianten (falls du sie behalten willst, aber sie sehen gleich aus) */
+.btn--primary,
+.btn--danger,
+.btn--ghost {
+  background: linear-gradient(to top right, #36403a, #869688);
+  border: 2px solid #000000;
+  color: #ffffff;
+}
+.btn--primary:hover,
+.btn--danger:hover,
+.btn--ghost:hover {
+  background: linear-gradient(to top right, #4d594f, #1d2e20);
+}
+
+/* Fallback: style <button> ohne Klasse ähnlich */
+button { padding: .45rem .8rem; border-radius: .5rem; border: 1px solid #333; background: #1a1a1a; color: #eee; }
+button:disabled { opacity: .6; cursor: not-allowed; }
+
+/* ---- Messages / Badges ------------------------------------------------- */
+.flash { padding: 8px 16px; }
+.msg { padding: 6px 8px; margin: 4px 0; border-radius: 4px; }
+.msg.success { background: #e6ffed; }
+.msg.warning { background: #fff9e6; }
+.msg.info { background: #e6f0ff; }
+.msg.danger { background: #ffe6e6; }
+.ok { color: #0a0; font-weight: 700; }
+.off { color: #a00; font-weight: 700; }
+.muted { color: #000000; }
+.mt { margin-top: 12px; }
+
+/* ---- Cards ------------------------------------------------------------- */
+/* Karten-Container */
+.card {
+  background: #ffffff;    /* jetzt weiß */
+  color: #000000;         /* Standard-Schriftfarbe */
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+  margin-top: 1rem;
+}
+.card-header { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; border-bottom: 1px solid #2b2b2b; }
+.card-body { padding: 12px; }
+
+/* ---- Log / Console ----------------------------------------------------- */
 .log {
   white-space: pre-wrap;
   background: #0e0e0e;
@@ -58,62 +98,39 @@ button:disabled {
   padding: 10px;
   border-radius: 6px;
   height: 360px;
-  overflow: auto;       /* nur das Log scrollt */
+  overflow: auto;
   width: 100%;
-  box-sizing: border-box; /* padding zählt zur Breite → kein Rausragen */
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
   font-size: 13px;
   line-height: 1.35;
 }
+pre#log, pre#log * { max-width: 100%; overflow-wrap: anywhere; }
 
-/* bricht sehr lange Pfade hart um */
-pre#log, pre#log * {
-  max-width: 100%;
-  overflow-wrap: anywhere;
-}
-
-/* RAW-Liste unter Ereignissen */
-.copy-row {
-  display: flex;
-  gap: .5rem;
-  align-items: center;
-  margin-bottom: 0.6rem; /* Abstand Button ↔ Liste */
-}
-
-.copy-row button {
-  padding: .45rem .8rem;
-  border: 1px solid #ccc;
-  background: #f7f7f7;
-  cursor: pointer;
-  border-radius: .5rem;
-  font-size: 0.9rem;
-  transition: background 0.2s, border-color 0.2s;
-}
-
-.copy-row button:hover {
-  background: #eee;
-  border-color: #999;
-}
-
+/* ---- RAW-Links Bereich ------------------------------------------------- */
+.copy-row { display: flex; gap: .5rem; align-items: center; margin-bottom: .6rem; }
 .raw-textarea {
   width: 100%;
   box-sizing: border-box;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: .8rem;
+  font-size: 12.5px;
   line-height: 1.35;
   padding: .6rem .7rem;
-  background: #0e0e0e;   /* wie Log */
-  color: #ddd;
+  background: #0f0f0f;   /* dunkel */
+  color: #e6e6e6;
   border: 1px solid #333;
   border-radius: .5rem;
   resize: vertical;
   white-space: pre;
-  overflow-wrap: normal;
   overflow-x: auto;
 }
 
-/* Mobile: Button über dem Textfeld, volle Breite */
-@media (width <= 640px) {
-  .copy-row { flex-direction: column; align-items: stretch; gap: .6rem; }
-  .copy-row button { align-self: flex-start; }
-}
+/* ---- Settings-Layout --------------------------------------------------- */
+.settings-form { max-width: 980px; }
+.settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; }
+.settings-grid .full { grid-column: 1 / -1; }
+.settings-actions { margin-top: 14px; }
+
+/* ---- Preview-Liste ----------------------------------------------------- */
+.preview-list { list-style: none; padding: 0; margin: 0; }
+.preview-list li { padding: 4px 0; border-bottom: 1px dashed #2b2b2b; }
+.preview-list li:last-child { border-bottom: 0; }
