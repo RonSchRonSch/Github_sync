@@ -14,7 +14,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "debounce_ms": 600,
     "max_backups": 10,
     "include_exts": [".py", ".json", ".md", ".yml", ".yaml", ".ini", ".toml", ".sql", ".js", ".ts", ".html", ".css"],
-    "exclude_dirs": [".git", ".idea", ".vscode", "__pycache__", ".venv", "venv", "node_modules", "dist", "build", ".auto_versions"],
+    "exclude_dirs": ["style_check", ".git", ".idea", ".vscode", "__pycache__", ".venv", "venv", "node_modules", "dist", "build", ".auto_versions"],
     "wip_branch": "",
 }
 

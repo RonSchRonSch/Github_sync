@@ -3,21 +3,22 @@
 
 <h1>GitHub Auto Sync – Dashboard</h1>
 
-<p><strong>Projekt:</strong> {{ cfg.project_name }} — <code>{{ cfg.project_path }}</code></p>
-<p><strong>Branch:</strong> {{ cfg.branch }} — <strong>Remote:</strong> {{ cfg.remote_url or "—" }}</p>
+<p><strong>Projekt:</strong> {{ cfg.project_name }} &mdash; <code>{{ cfg.project_path }}</code></p>
+<p><strong>Branch:</strong> {{ cfg.branch }} &mdash; <strong>Remote:</strong> {{ cfg.remote_url or "&mdash;" }}</p>
 <p><strong>Status:</strong> {% if running %}<span class="ok">WATCHING</span>{% else %}<span class="off">STOPPED</span>{% endif %}</p>
 
 <form method="post" action="{{ url_for('start_watch') }}" style="display:inline">
-  <button type="submit" {% if running %}disabled{% endif %}>Start</button>
+  <button type="submit" aria-label="Watcher starten" {% if running %}disabled{% endif %}>Start</button>
 </form>
 <form method="post" action="{{ url_for('stop_watch') }}" style="display:inline">
-  <button type="submit" {% if not running %}disabled{% endif %}>Stop</button>
+  <button type="submit" aria-label="Watcher stoppen" {% if not running %}disabled{% endif %}>Stop</button>
 </form>
 
 <h2>Letzte Ereignisse</h2>
 <pre id="log" class="log"></pre>
 
 <script>
+  // Logs live nachladen
   async function refreshLogs() {
     try {
       const res  = await fetch("/api/logs", { cache: "no-store" });
@@ -40,7 +41,7 @@
   setInterval(refreshLogs, 1500);
 </script>
 
-  <!-- RAW-Links aus der Vorschau -->
+<!-- RAW-Links aus der Vorschau -->
 <section class="card mt">
   <header class="card-header">
     <h3>Vorschau (RAW-Links)</h3>
@@ -49,10 +50,10 @@
     </div>
   </header>
   <div class="card-body">
-    <textarea id="rawList" class="raw-textarea" readonly rows="6" spellcheck="false">
-{% for url in preview_raw_urls %}{{ url }}
-{% endfor %}
-    </textarea>
+    <label for="rawList" style="position:absolute;left:-10000px;top:auto;width:1px;height:1px;overflow:hidden;">
+      RAW‑Links
+    </label>
+    <textarea id="rawList" class="raw-textarea" readonly rows="6" spellcheck="false"></textarea>
     {% if not preview_raw_urls %}
       <p class="muted">Keine Dateien in der Vorschau (Watcher gestoppt oder Filter greifen).</p>
     {% endif %}
@@ -60,33 +61,50 @@
 </section>
 
 <script>
+  // RAW-Liste live nachladen
+  async function refreshRawLinks() {
+    try {
+      const res  = await fetch("/api/raw-links", { cache: "no-store" });
+      const data = await res.json();
+      if (data && data.ok) {
+        const ta = document.getElementById("rawList");
+        if (ta) ta.value = (data.text || "");
+      }
+    } catch (e) { /* still */ }
+  }
+  refreshRawLinks();
+  setInterval(refreshRawLinks, 2000);
+
+  // Copy-Button (ohne deprecated APIs)
   (function () {
     const btn = document.getElementById('btnCopyRaw');
     const ta  = document.getElementById('rawList');
-    if (btn && ta) {
-      btn.addEventListener('click', async () => {
-        try {
-          // Inhalt säubern: führende/anhängende Leerzeilen entfernen
-          const text = (ta.value || '').trim();
-          if (!text) return;
-          ta.focus();
-          ta.select();
-          ta.setSelectionRange(0, text.length);
+    if (!btn || !ta) return;
+
+    btn.addEventListener('click', async () => {
+      const text = (ta.value || '').trim();
+      if (!text) return;
+
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
           await navigator.clipboard.writeText(text);
           btn.textContent = 'Kopiert!';
           setTimeout(() => (btn.textContent = 'Copy'), 1200);
-        } catch (e) {
-          // Fallback: execCommand (ältere Browser)
-          try {
-            ta.focus();
-            ta.select();
-            document.execCommand('copy');
-            btn.textContent = 'Kopiert!';
-            setTimeout(() => (btn.textContent = 'Copy'), 1200);
-          } catch (_) {}
+        } else {
+          // Fallback ohne deprecated execCommand:
+          // markiert den Text, damit der User ⌘C/Strg+C drücken kann
+          ta.focus();
+          ta.select();
+          btn.textContent = 'Markiert';
+          setTimeout(() => (btn.textContent = 'Copy'), 1200);
         }
-      });
-    }
+      } catch {
+        ta.focus();
+        ta.select();
+        btn.textContent = 'Markiert';
+        setTimeout(() => (btn.textContent = 'Copy'), 1200);
+      }
+    });
   })();
 </script>
 

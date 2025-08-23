@@ -1,5 +1,6 @@
 from __future__ import annotations
 import os, sys, subprocess
+import re
 import atexit
 import shutil
 from pathlib import Path
@@ -43,6 +44,31 @@ def _safe_cleanup_before_start(cfg, log):
         log.add("Cache bereinigt (vor Start)")
 
 
+def _raw_url_for(rel_path: str, cfg: dict) -> str:
+    """
+    Baut eine raw.githubusercontent.com-URL aus remote_url + branch + relativem Pfad.
+    Unterstützt https und ssh Remote-Formate.
+    """
+    remote = (cfg.get("remote_url") or "").strip()
+    branch = (cfg.get("branch") or "main").strip()
+
+    # https-Variante: https://github.com/<user>/<repo>.git
+    m = re.match(r"^https?://github\.com/([^/]+)/([^/]+?)(?:\.git)?$", remote)
+    if not m:
+        # ssh-Variante: git@github.com:<user>/<repo>.git
+        m = re.match(r"^git@github\.com:([^/]+)/([^/]+?)(?:\.git)?$", remote)
+
+    if not m:
+        return rel_path  # Fallback: lieber den relativen Pfad zeigen als gar nichts
+
+    user, repo = m.group(1), m.group(2)
+    # raw‑Basis
+    base = f"https://raw.githubusercontent.com/{user}/{repo}/{branch}"
+    # rel_path sauber anhängen
+    rel_path = rel_path.lstrip("/")
+
+    return f"{base}/{rel_path}"
+
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "dev-secret")
 
@@ -57,11 +83,26 @@ atexit.register(lambda: watch.stop() if watch and watch.running() else None)
 
 @app.route("/")
 def index():
+    # Logs wie gehabt
+    lines = log.dump()[:100]
+
+    # Vorschau-Dateien + RAW-URLs erzeugen
+    try:
+        files = watch.preview_files() if watch.running() else []
+    except Exception:
+        files = []
+
+    raw_urls = []
+    for rel in files:
+        raw_urls.append(_raw_url_for(rel, cfg_store.data))
+
     return render_template(
         "index.html",
         cfg=cfg_store.data,
         running=watch.running(),
-        logs=log.dump()[:100],
+        logs=list(lines),
+        preview_files=files,
+        preview_raw_urls=raw_urls,
     )
 
 
@@ -142,6 +183,41 @@ def api_logs():
     except Exception:
         lines = []
     return jsonify(text="\n".join(lines), lines=lines)
+
+
+# --- NEU: dynamische RAW-Link-Liste ---
+def _raw_base_from_remote(remote_url: str, branch: str) -> str:
+    """
+    Baut die raw.githubusercontent.com-Basis aus einer GitHub-Remote-URL.
+    Unterstützt https://github.com/<owner>/<repo>.git
+    """
+    try:
+        # Beispiel: https://github.com/RonSchRonSch/PyCharm_auto.git
+        if "github.com" in remote_url:
+            tail = remote_url.split("github.com/", 1)[1]
+            tail = tail.removesuffix(".git")
+            owner, repo = tail.split("/", 1)
+            return f"https://raw.githubusercontent.com/{owner}/{repo}/{branch}"
+    except Exception:
+        pass
+    return ""  # unbekanntes Remote-Format -> leere Basis
+
+@app.route("/api/raw-links")
+def api_raw_links():
+    """
+    Gibt die aktuelle RAW-Liste zurück (Text + Array), damit das Frontend
+    sie wie die Logs pollen und live anzeigen kann.
+    """
+    try:
+        files = watch.preview_files()  # relative Pfade
+        branch = cfg_store.data.get("branch", "main")
+        remote = cfg_store.data.get("remote_url", "")
+        base = _raw_base_from_remote(remote, branch)
+        lines = [(f"{base}/{p}" if base else p) for p in files]
+        text = "\n".join(lines)
+        return jsonify(ok=True, text=text, lines=lines)
+    except Exception as e:
+        return jsonify(ok=False, error=str(e), text="", lines=[])
 
 
 @app.get("/choose-folder")

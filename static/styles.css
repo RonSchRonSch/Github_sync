@@ -15,7 +15,6 @@ input, textarea { width: 100%; padding: 6px; box-sizing: border-box; }
 .ok { color: #0a0; font-weight: bold; }
 .off { color: #a00; font-weight: bold; }
 pre#logbox { background:#0b0b0b; color:#d7d7d7; padding:10px; height:300px; overflow:auto; border-radius:6px; }
-button { padding: 8px 12px; }
 
 /* --- Layout-Schutz gegen horizontales Scrollen --- */
 html, body {
@@ -28,6 +27,27 @@ html, body {
   box-sizing: border-box;
   width: 100%;
   padding-right: 12px;  /* verhindert optischen Überstand rechts */
+}
+
+button {
+  padding: .45rem .8rem;
+  border: 1px solid #ccc;
+  background: #f7f7f7;
+  cursor: pointer;
+  border-radius: .5rem;
+  font-size: 0.9rem;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+button:hover {
+  background: #eee;
+  border-color: #999;
+}
+
+button:disabled {
+  background: #f0f0f0;
+  color: #999;
+  cursor: not-allowed;
 }
 
 /* Log-Fläche */
@@ -62,22 +82,24 @@ pre#log, pre#log * {
 
 .copy-row button {
   padding: .45rem .8rem;
-  border: 1px solid #333;      /* wie Log-Rand */
-  background: #1a1a1a;         /* dunkler Button, passend zum Log */
-  color: #eee;
+  border: 1px solid #ccc;
+  background: #f7f7f7;
   cursor: pointer;
   border-radius: .5rem;
+  font-size: 0.9rem;
+  transition: background 0.2s, border-color 0.2s;
 }
 
 .copy-row button:hover {
-  background: #222;
+  background: #eee;
+  border-color: #999;
 }
 
 .raw-textarea {
   width: 100%;
   box-sizing: border-box;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 12.5px;
+  font-size: .8rem;
   line-height: 1.35;
   padding: .6rem .7rem;
   background: #0e0e0e;   /* wie Log */
