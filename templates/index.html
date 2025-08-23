@@ -8,10 +8,15 @@
 <p><strong>Status:</strong> {% if running %}<span class="ok">WATCHING</span>{% else %}<span class="off">STOPPED</span>{% endif %}</p>
 
 <form method="post" action="{{ url_for('start_watch') }}" style="display:inline">
-  <button type="submit" aria-label="Watcher starten" {% if running %}disabled{% endif %}>Start</button>
+  <button class="btn" type="submit" {% if running %}disabled{% endif %}>Start</button>
 </form>
-<form method="post" action="{{ url_for('stop_watch') }}" style="display:inline">
-  <button type="submit" aria-label="Watcher stoppen" {% if not running %}disabled{% endif %}>Stop</button>
+
+<form method="post" action="{{ url_for('stop_watch') }}" style="display:inline; margin-left:.5rem;">
+  <button class="btn" type="submit" {% if not running %}disabled{% endif %}>Stop</button>
+</form>
+
+<form method="post" action="{{ url_for('manual_push') }}" style="display:inline; margin-left:.5rem;">
+  <button class="btn" type="submit" {% if cfg.auto_push %}disabled{% endif %}>Push</button>
 </form>
 
 <h2>Letzte Ereignisse</h2>
@@ -46,7 +51,7 @@
   <header class="card-header">
     <h3>Vorschau (RAW-Links)</h3>
     <div class="copy-row">
-      <button id="btnCopyRaw" type="button">Copy</button>
+      <button id="btnCopyRaw" type="button" class="btn">Copy</button>
     </div>
   </header>
   <div class="card-body">

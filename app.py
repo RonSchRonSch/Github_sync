@@ -133,6 +133,40 @@ def stop_watch():
     return redirect(url_for("index"))
 
 
+@app.route("/push", methods=["POST"])
+def manual_push():
+    """
+    Manueller Push: nur dann sinnvoll aktiv, wenn Auto-Push inaktiv ist.
+    Macht KEINEN Commit, stößt lediglich 'git push origin <branch>' an.
+    """
+    try:
+        proj = cfg_store.data.get("project_path")
+        branch = cfg_store.data.get("branch", "main") or "main"
+        if not proj:
+            flash("Kein Projektpfad konfiguriert.", "warning")
+            return redirect(url_for("index"))
+
+        # Nur pushen, wenn Repo existiert
+        if not os.path.isdir(os.path.join(proj, ".git")):
+            flash("Kein Git-Repository im Projektordner gefunden.", "danger")
+            return redirect(url_for("index"))
+
+        # reinen Push ausführen
+        cmd = ["git", "-C", proj, "push", "--porcelain", "--", "origin", branch]
+        out = subprocess.check_output(cmd, stderr=subprocess.STDOUT, text=True)
+        log.add(f"Manueller Push: {branch} -> origin (ok)")
+        if out.strip():
+            log.add(out.strip())
+        flash("Manueller Push ausgeführt.", "success")
+    except subprocess.CalledProcessError as e:
+        log.add(f"Manueller Push fehlgeschlagen: {e.output!r}")
+        flash(f"Push fehlgeschlagen: {e.output}", "danger")
+    except Exception as e:
+        log.add(f"Manueller Push Fehler: {e!r}")
+        flash(f"Fehler: {e}", "danger")
+    return redirect(url_for("index"))
+
+
 @app.route("/settings", methods=["GET", "POST"])
 def settings():
     if request.method == "POST":
